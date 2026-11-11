@@ -136,6 +136,7 @@ const STYLES = [["ball", "Ball-and-stick"], ["electrons", "Atoms and electrons"]
 const HUES = [205, 280, 160, 40, 20, 330, 95, 250, 0, 130];
 const STYLE_KEY = "goddard-brain-style";
 const POS_KEY = "goddard-brain-pos";
+const SOUND_KEY = "goddard-brain-sound";
 // ==================================================
 
 const TAU = Math.PI * 2;
@@ -155,6 +156,7 @@ const E = {
   prevHubs: null, prevFiles: null, lastFiles: null, gone: new Map(), moved: new Set(),
 };
 try { const v = window.localStorage.getItem(STYLE_KEY); if (STYLES.some((s) => s[0] === v)) E.style = v; } catch (e) {}
+try { E.sound = window.localStorage.getItem(SOUND_KEY) === "1"; } catch (e) {}
 
 // ---------- model: files -> hubs (repo, folders, subfolders) -> layout
 function rebuild(data) {
@@ -855,10 +857,42 @@ function goddardUpload() {
   GD.brain = { name: "brain", mid: BRAIN.at, group: "head", vb, ib, count: ix.length, col: [1, 1, 1], shine: 0, mode: 2 };
   GD.ready = true;
 }
+// ----- sounds: off until switched on in the menu. Clips sit in sounds/, and sounds/sounds.json lists which clips go with which move
+const SND = { ctx: null, map: null, bufs: {}, src: null, volume: 0.6 };
+const soundGet = (file, json) => modelFile("sounds/" + file, json ? "json" : "bin");
+function soundWake() { // audio can only start from a click or tap, so this is called on every one
+  if (!E.sound) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try { if (!SND.ctx) SND.ctx = new AC(); if (SND.ctx.state === "suspended") SND.ctx.resume(); } catch (e) { return; }
+  if (!SND.map) SND.map = soundGet("sounds.json", true).then((m) => m.moves || {}).catch(() => { SND.map = null; return {}; });
+}
+function soundSet(on) {
+  E.sound = on;
+  try { window.localStorage.setItem(SOUND_KEY, on ? "1" : "0"); } catch (e) {}
+  if (on) { soundWake(); gdPlay("bark"); } else if (SND.src) { try { SND.src.stop(); } catch (e) {} SND.src = null; }
+}
+function gdSound(name) {
+  if (!E.sound || !SND.ctx || !SND.map) return;
+  const start = (buf) => {
+    if (!E.sound || SND.ctx.state !== "running") return;
+    if (SND.src) { try { SND.src.stop(); } catch (e) {} }
+    const s = SND.ctx.createBufferSource(), g = SND.ctx.createGain();
+    s.buffer = buf; g.gain.value = SND.volume; s.connect(g); g.connect(SND.ctx.destination); s.start(); SND.src = s;
+  };
+  SND.map.then((moves) => {
+    const list = moves[name];
+    if (!list || !list.length) return;
+    const file = list[Math.floor(Math.random() * list.length)];
+    if (SND.bufs[file]) return start(SND.bufs[file]);
+    return soundGet(file).then((ab) => SND.ctx.decodeAudioData(ab, (buf) => { SND.bufs[file] = buf; start(buf); }, () => {}));
+  }).catch(() => {});
+}
 // ----- behaviour: which move to play, from what is happening in the repo
 function gdPlay(name, now) { // interrupts whatever he's doing
   if (!GD.moves || !GD.moves.moves[name]) return;
   GD.move = { name, t: 0, keys: GD.moves.moves[name].keys };
+  soundWake(); gdSound(name);
   if (name === "fetch") goddardFetch();
   if (name === "playDead") GD.seed = Math.random();
   if (name === "analyze") setTimeout(() => { GD.scan = { t: 0, seen: new Set() }; }, 300);
@@ -1154,7 +1188,7 @@ function attachPhone() {
   fit();
   let clearTimer = null, down = false;
   const at = (ev) => { const r = el.getBoundingClientRect(); E.mouse = { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
-  el.addEventListener("pointerdown", (ev) => { down = true; clearTimeout(clearTimer); at(ev); pickHover(); });
+  el.addEventListener("pointerdown", (ev) => { soundWake(); down = true; clearTimeout(clearTimer); at(ev); pickHover(); });
   el.addEventListener("pointermove", (ev) => { if (down) at(ev); }); // slide a finger to read the atoms
   const up = (ev) => {
     if (!down) return;
@@ -1169,6 +1203,7 @@ function attachPhone() {
   const more = document.querySelector(".more"), drop = document.querySelector(".drop");
   const fill = () => {
     drop.innerHTML = STYLES.map(([id, name]) => `<div class="item" data-id="${id}"><span class="check">${id === E.style ? "✓" : ""}</span>${name}</div>`).join("")
+      + `<div class="sep"></div><div class="item" data-id="sound"><span class="check">${E.sound ? "✓" : ""}</span>Sound effects</div>`
       + `<div class="sep"></div><div class="item" data-id="gear"><span class="check"></span>GitHub token…</div>`;
   };
   const toggle = (on) => { if (on) fill(); drop.classList.toggle("open", on); more.classList.toggle("open", on); };
@@ -1178,6 +1213,7 @@ function attachPhone() {
     if (!it) return;
     toggle(false);
     if (it.dataset.id === "gear") { showSetup(true); return; }
+    if (it.dataset.id === "sound") { soundSet(!E.sound); return; }
     E.style = it.dataset.id; E.flyers = [];
     try { localStorage.setItem(STYLE_KEY, E.style); } catch (e) {}
   });
