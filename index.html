@@ -13,15 +13,16 @@
 <link rel="manifest" href="manifest.json">
 <title>Goddard Brain</title>
 <style>
+  :root { --st: env(safe-area-inset-top); --sr: env(safe-area-inset-right); --sb: env(safe-area-inset-bottom); --sl: env(safe-area-inset-left); }
   html, body { margin: 0; height: 100%; background: #0d0f15; overflow: hidden; overscroll-behavior: none; }
   body { font-family: -apple-system, "SF Pro Text", sans-serif; color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   .panel {
     position: fixed; overflow: hidden; touch-action: none;
-    top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right);
-    bottom: calc(env(safe-area-inset-bottom) + 56px);
+    top: var(--st); left: var(--sl); right: var(--sr);
+    bottom: var(--sb);
     background: radial-gradient(120% 80% at 50% 55%, #1b1f2c 0%, #0d0f15 70%);
   }
-  header { position: absolute; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 16px 16px 0 100px; font-size: 14px; pointer-events: none; z-index: 1; }
+  header { position: absolute; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 16px 64px 0 100px; font-size: 14px; pointer-events: none; z-index: 1; }
   .dot { width: 9px; height: 9px; border-radius: 50%; transition: all .3s; background: #5fe08a; }
   .dot.dirty { background: #ffb347; }
   .dot.ahead { background: #6fb7ff; }
@@ -45,16 +46,21 @@
   .tip-chain:empty { display: none; }
   .tip-sub { font-size: 11px; color: rgba(255, 255, 255, .65); margin-top: 1px; }
   .menu { display: none; }
-  .bar {
-    position: fixed; left: 0; right: 0; bottom: 0; height: 56px; padding: 0 12px env(safe-area-inset-bottom);
-    display: flex; gap: 8px; align-items: center; justify-content: center; background: #0d0f15;
+  .more {
+    position: fixed; z-index: 3; top: calc(var(--st) + 10px); right: calc(var(--sr) + 12px); width: 38px; height: 38px; border-radius: 19px;
+    border: 1px solid rgba(255, 255, 255, .16); background: rgba(30, 32, 42, .7); color: rgba(255, 255, 255, .85);
+    font: 600 18px -apple-system, sans-serif; line-height: 1; padding: 0; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   }
-  .bar button {
-    flex: 1; max-width: 120px; height: 36px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, .16);
-    background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .8); font: 500 13px -apple-system, sans-serif;
+  .more.open { background: #2f6fed; border-color: #2f6fed; color: #fff; }
+  .drop {
+    display: none; position: fixed; z-index: 3; top: calc(var(--st) + 54px); right: calc(var(--sr) + 12px); width: 200px; padding: 5px; border-radius: 12px;
+    background: rgba(40, 42, 52, .97); border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); font-size: 15px;
   }
-  .bar button.on { background: #2f6fed; border-color: #2f6fed; color: #fff; }
-  .bar button[data-id="gear"] { flex: 0 0 36px; font-size: 16px; }
+  .drop.open { display: block; }
+  .drop .item { display: flex; align-items: center; padding: 10px 10px; border-radius: 8px; }
+  .drop .item:active { background: #2f6fed; }
+  .drop .check { width: 22px; color: #7fb0ff; }
+  .drop .sep { height: 1px; margin: 4px 8px; background: rgba(255, 255, 255, .15); }
   .setup {
     display: none; position: fixed; inset: 0; z-index: 10; align-items: center; justify-content: center; padding: 24px;
     background: rgba(8, 9, 14, .92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); -webkit-user-select: text; user-select: text;
@@ -78,7 +84,8 @@
   <div class="tip"><div class="tip-title"></div><div class="tip-chain"></div><div class="tip-sub"></div></div>
   <div class="menu"></div>
 </div>
-<div class="bar"></div>
+<button class="more" aria-label="Menu">⋯</button>
+<div class="drop"></div>
 <div class="setup">
   <div class="card">
     <h1>Connect Goddard to GitHub</h1>
@@ -1043,6 +1050,8 @@ const GH = { owner: "jpk4202biz-ctrl", repo: "goddard-brain", branch: "main" };
 const WIDGET_DIR = "projects/completed/macos-desktop-widgets/code/goddard-brain/";
 const TOKEN_KEY = "goddard-gh-token", SEEN_KEY = "goddard-seen", POLL_MS = 30000;
 const LOCAL = location.protocol === "file:" || /^(localhost|127\.|192\.168\.)/.test(location.hostname) && /[?&]local\b/.test(location.search);
+// Test hook (local only): ?safe=top,right,bottom,left fakes the iPhone's notch and home-bar margins
+if (LOCAL) { const m = location.search.match(/safe=([\d,]+)/); if (m) m[1].split(",").forEach((v, i) => document.documentElement.style.setProperty(["--st", "--sr", "--sb", "--sl"][i], v + "px")); }
 const P = { token: "", etag: "", detail: new Map(), tree: null, treeSha: "", shas: {}, busy: false, last: 0, status: "" };
 try { P.token = localStorage.getItem(TOKEN_KEY) || ""; } catch (e) {}
 try { const s = JSON.parse(localStorage.getItem(SEEN_KEY)); if (Array.isArray(s)) E.seen = new Set(s); } catch (e) {} // commits since last visit get barked
@@ -1156,18 +1165,24 @@ function attachPhone() {
   el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
   window.addEventListener("resize", () => setTimeout(fit, 50));
 
-  // Bottom bar: molecule style and settings
-  const bar = document.querySelector(".bar");
-  bar.innerHTML = STYLES.map(([id, name]) => `<button data-id="${id}">${name.replace("Ball-and-stick", "Ball").replace("Atoms and electrons", "Electrons").replace("Branching molecule", "Branching")}</button>`).join("") + `<button data-id="gear" aria-label="Settings">⚙︎</button>`;
-  const mark = () => bar.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.id === E.style));
-  mark();
-  bar.addEventListener("click", (ev) => {
-    const b = ev.target.closest("button");
-    if (!b) return;
-    if (b.dataset.id === "gear") { showSetup(true); return; }
-    E.style = b.dataset.id; E.flyers = []; mark();
+  // Dropdown (top-right button): molecule style and settings
+  const more = document.querySelector(".more"), drop = document.querySelector(".drop");
+  const fill = () => {
+    drop.innerHTML = STYLES.map(([id, name]) => `<div class="item" data-id="${id}"><span class="check">${id === E.style ? "✓" : ""}</span>${name}</div>`).join("")
+      + `<div class="sep"></div><div class="item" data-id="gear"><span class="check"></span>GitHub token…</div>`;
+  };
+  const toggle = (on) => { if (on) fill(); drop.classList.toggle("open", on); more.classList.toggle("open", on); };
+  more.addEventListener("click", () => toggle(!drop.classList.contains("open")));
+  drop.addEventListener("click", (ev) => {
+    const it = ev.target.closest(".item");
+    if (!it) return;
+    toggle(false);
+    if (it.dataset.id === "gear") { showSetup(true); return; }
+    E.style = it.dataset.id; E.flyers = [];
     try { localStorage.setItem(STYLE_KEY, E.style); } catch (e) {}
   });
+  el.addEventListener("pointerdown", () => toggle(false)); // tapping the molecule closes it
+  if (LOCAL && /[?&]open\b/.test(location.search)) setTimeout(() => toggle(true), 1000); // test hook
 
   if (!E.running) { E.running = true; requestAnimationFrame(frame); }
   poll();
