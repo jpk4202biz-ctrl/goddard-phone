@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goddard">
+<meta name="theme-color" content="#0d0f15">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Goddard Brain</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0d0f15; overflow: hidden; overscroll-behavior: none; }
+  body { font-family: -apple-system, "SF Pro Text", sans-serif; color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  .panel {
+    position: fixed; overflow: hidden; touch-action: none;
+    top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right);
+    bottom: calc(env(safe-area-inset-bottom) + 56px);
+    background: radial-gradient(120% 80% at 50% 55%, #1b1f2c 0%, #0d0f15 70%);
+  }
+  header { position: absolute; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 16px 16px 0 100px; font-size: 14px; pointer-events: none; z-index: 1; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; transition: all .3s; background: #5fe08a; }
+  .dot.dirty { background: #ffb347; }
+  .dot.ahead { background: #6fb7ff; }
+  .dot.live { background: #fff; box-shadow: 0 0 12px 4px rgba(255, 255, 255, .8); }
+  .title { font-weight: 600; letter-spacing: .2px; }
+  .crumb { flex-basis: 100%; font-size: 12px; color: rgba(255, 255, 255, .7); overflow-wrap: anywhere; }
+  .crumb:empty { display: none; }
+  .event { flex-basis: 100%; opacity: 0; transition: opacity .5s; font-size: 12px; color: rgba(255, 255, 255, .75); }
+  .event.show { opacity: 1; }
+  .status { flex-basis: 100%; font-size: 11px; color: #ffb347; }
+  .status:empty { display: none; }
+  canvas.stage { display: block; width: 100%; height: 100%; }
+  canvas.goddard { position: absolute; z-index: 1; top: 0; left: 4px; width: 84px; height: 84px; pointer-events: none; }
+  .tip {
+    display: none; position: absolute; z-index: 2; max-width: 240px; padding: 6px 10px; border-radius: 9px; pointer-events: none;
+    background: rgba(30, 32, 42, 0.94); border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+  }
+  .tip div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tip-title { font-size: 13px; font-weight: 600; }
+  .tip .tip-chain { font-size: 11px; color: rgba(255, 255, 255, .8); margin-top: 1px; white-space: normal; overflow-wrap: anywhere; }
+  .tip-chain:empty { display: none; }
+  .tip-sub { font-size: 11px; color: rgba(255, 255, 255, .65); margin-top: 1px; }
+  .menu { display: none; }
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 56px; padding: 0 12px env(safe-area-inset-bottom);
+    display: flex; gap: 8px; align-items: center; justify-content: center; background: #0d0f15;
+  }
+  .bar button {
+    flex: 1; max-width: 120px; height: 36px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .8); font: 500 13px -apple-system, sans-serif;
+  }
+  .bar button.on { background: #2f6fed; border-color: #2f6fed; color: #fff; }
+  .bar button[data-id="gear"] { flex: 0 0 36px; font-size: 16px; }
+  .setup {
+    display: none; position: fixed; inset: 0; z-index: 10; align-items: center; justify-content: center; padding: 24px;
+    background: rgba(8, 9, 14, .92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); -webkit-user-select: text; user-select: text;
+  }
+  .card { max-width: 380px; width: 100%; background: #1b1e29; border: 1px solid rgba(255, 255, 255, .12); border-radius: 18px; padding: 20px; font-size: 14px; line-height: 1.45; }
+  .card h1 { font-size: 19px; margin: 0 0 8px; }
+  .card ol { padding-left: 20px; margin: 8px 0 14px; color: rgba(255, 255, 255, .85); }
+  .card a { color: #7fb0ff; }
+  .card input { width: 100%; box-sizing: border-box; height: 42px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .2); background: #0d0f15; color: #fff; padding: 0 12px; font-size: 15px; }
+  .card .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .card button { height: 40px; padding: 0 16px; border-radius: 10px; border: 0; font: 600 14px -apple-system, sans-serif; background: #2f6fed; color: #fff; }
+  .card button.cancel, .card button.forget { background: rgba(255, 255, 255, .1); }
+  .card .small { font-size: 12px; color: rgba(255, 255, 255, .6); margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <canvas class="goddard"></canvas>
+  <header><span class="dot clean"></span><span class="title">goddard-brain</span><span class="crumb"></span><span class="event"></span><span class="status"></span></header>
+  <canvas class="stage"></canvas>
+  <div class="tip"><div class="tip-title"></div><div class="tip-chain"></div><div class="tip-sub"></div></div>
+  <div class="menu"></div>
+</div>
+<div class="bar"></div>
+<div class="setup">
+  <div class="card">
+    <h1>Connect Goddard to GitHub</h1>
+    The brain is a private repo, so Goddard needs a read-only key. It's saved on this phone only.
+    <ol>
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → New fine-grained token</a></li>
+      <li>Repository access: <b>Only select repositories</b> → goddard-brain</li>
+      <li>Permissions → Repository → <b>Contents: Read-only</b></li>
+      <li>Generate, copy, and paste it here</li>
+    </ol>
+    <input type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="row"><button class="save">Save</button><button class="cancel">Cancel</button><button class="forget">Forget token</button></div>
+  </div>
+</div>
+<script>
+// goddard-brain — Übersicht desktop widget
+// Draws the repo as a molecule: the repo is the central atom, every folder at every depth is
+// an atom bonded to its parent folder, sized by what it holds. So the bonds trace the whole chain
+// of folders. Individual documents are not drawn (set SHOW_FILES to true to bring them back).
+// When a commit lands (on this Mac or on GitHub) a spark flies to each file it touched.
+// When a file moves to another folder, a bubble pops off its old branch and flies to the new one.
+// Goddard himself (3-D, from Jason's CAD) sits in the top-left corner, with glowing eyes and a plasma-ball
+// brain. He plays the moves in goddard-moves.json (the same file the real robot will use): happy and
+// barking on a commit, curious when a file moves, play dead when files are deleted, sits and begs while
+// there are unsaved changes, sleeps when nothing happens for a while. Point at him to pet him; click him
+// and he analyzes the repo. His head follows whatever you point at in the molecule.
+// He plays with the bubbles too: barks commit sparks out of his mouth, watches bubbles fly, plays fetch
+// with a folder, scans the molecule when analyzing, looks at unsaved folders, and snores Zzz bubbles. Mesh: goddard.bin/.json, made by the Man's Best Friend project.
+// Hold Übersicht's interaction shortcut to use the mouse on it:
+//   drag to move (snaps to the macOS widget grid; hold Option to place freely),
+//   double-click to send it back to its starting spot, right-click to switch style,
+//   hover over any atom to see which file or folder it is and light up its chain back to the repo,
+//   click a folder, subfolder or file to zoom in on it; click the centred atom to step back out,
+//   or click empty space to return to the full view.
+
+// ===================== CONFIG =====================
+const REPO_NAME = "goddard-brain";
+// Starting spot (used until you drag it; double-click returns here)
+const START = { top: 40, right: 400 };
+// Same grid as Apple's desktop widgets and the nearest-aircraft widget: "large" is 2x2 tiles
+const TILE = 165, GAP = 15, PITCH = TILE + GAP, WIDGET_ORIGIN = { left: 15.5, top: 16.5 };
+let W = 2 * TILE + GAP, H = W;               // panel size in points (345 x 345)
+const FPS = 30;
+const SHOW_FILES = false;                      // true also draws every document as a small atom on its folder
+const MAX_SPARKS = 30;                         // sparks shown per commit
+const MOVE_MEMORY = 15 * 60 * 1000;            // ms a vanished file is remembered, to match it if it reappears elsewhere
+const STYLES = [["ball", "Ball-and-stick"], ["electrons", "Atoms and electrons"], ["branch", "Branching molecule"]];
+const HUES = [205, 280, 160, 40, 20, 330, 95, 250, 0, 130];
+const STYLE_KEY = "goddard-brain-style";
+const POS_KEY = "goddard-brain-pos";
+// ==================================================
+
+const TAU = Math.PI * 2;
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+// Small seeded random generator, so each file always lands in the same spot
+const rng = (seed) => () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const logSize = (bytes, from) => Math.max(0, Math.log10(bytes + 1) - from);
+
+const E = {
+  el: null, ctx: null, dot: null, tag: null, menu: null, running: false, last: 0, ready: false,
+  style: "ball", core: null, hubs: new Map(), files: new Map(), groups: [], items: [],
+  crumb: null, focus: null, cam: { b: 1, z: 1, z0: 1, from: null }, lastClick: 0,
+  tip: null, mouse: null, hover: null, dragging: false, clock: 0,
+  fit3: 1, fit2: 1, flyers: [], seen: null, lastOutput: null, sprites: {}, tagTimer: null, state: "clean",
+  prevHubs: null, prevFiles: null, lastFiles: null, gone: new Map(), moved: new Set(),
+};
+try { const v = window.localStorage.getItem(STYLE_KEY); if (STYLES.some((s) => s[0] === v)) E.style = v; } catch (e) {}
+
+// ---------- model: files -> hubs (repo, folders, subfolders) -> layout
+function rebuild(data) {
+  const first = !E.ready, old = E.files, oldHubs = E.hubs, files = new Map(), hubs = new Map();
+  const hub = (key, name, level, parent) => {
+    let h = hubs.get(key);
+    if (!h) {
+      h = oldHubs.get(key) || { key, pulse: 0, sx: W / 2, sy: H / 2, k: 1, z: 0 };
+      Object.assign(h, { name, level, parent, atoms: [], subs: [], size: 0, n: 0, isHub: true, dirty: false, ou: rng(hash(key))() });
+      hubs.set(key, h); if (parent) parent.subs.push(h);
+    }
+    return h;
+  };
+  const core = hub("", REPO_NAME, 0, null);
+  for (const [path, size] of data.files) {
+    const parts = path.split("/");
+    let h = core;
+    for (let i = 0; i < parts.length - 1; i++) h = hub(parts.slice(0, i + 1).join("/"), parts[i], i + 1, h); // one hub per folder, all the way down
+    for (let x = h; x; x = x.parent) { x.size += size; x.n++; }
+    if (!SHOW_FILES) continue;
+    let a = old.get(path);
+    if (!a) { const r = rng(hash(path)); a = { path, pulse: first ? 0 : 1, hidden: false, u: [r(), r(), r(), r(), r()], sx: W / 2, sy: H / 2, k: 1, z: 0 }; }
+    a.hub = h; a.size = size; a.dirty = false; a.r = Math.min(4.5, 0.9 + 0.55 * logSize(size, 2));
+    files.set(path, a); h.atoms.push(a);
+  }
+  for (const p of data.dirty || []) { const a = files.get(p); if (a) a.dirty = true; else if (!SHOW_FILES) hubFor(p, hubs).dirty = true; }
+
+  core.r = 10; core.hue = "core"; core.idx = 0; core.dir = 1;
+  core.subs.forEach((f, i) => {
+    f.hue = HUES[i % HUES.length]; f.idx = i + 1; f.dir = i % 2 ? 1 : -1; f.r = Math.min(13, 5 + 1.5 * logSize(f.size, 3));
+    const kids = (h) => h.subs.forEach((s) => { s.hue = f.hue; s.top = f; f.depth = Math.max(f.depth, s.level - 1); s.r = Math.max(2.2, Math.min(8, 3.2 + logSize(s.size, 3)) * Math.pow(0.88, s.level - 2)); kids(s); });
+    f.top = f; f.depth = 0; kids(f);
+  });
+  core.top = core;
+
+  // 3-D layout (ball-and-stick): folders spread evenly over a sphere, and each folder's
+  // subfolders fan outward from it, level after level
+  const spread = (h) => (h.atoms.length ? 5 + Math.cbrt(h.atoms.length) * 5.5 : 0);
+  const C = (h) => h.r + spread(h);
+  const reach3 = (h) => { // how far each folder's whole subtree reaches from its own centre
+    let e = C(h);
+    for (const s of h.subs) { reach3(s); s.d3 = C(h) + C(s) * 0.9 + 8 + (s.ext3 - C(s)) * 0.15; e = Math.max(e, s.d3 + s.ext3); }
+    h.ext3 = e;
+  };
+  const fan3 = (h, dir, turn) => {
+    const u = norm(cross(dir, Math.abs(dir[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0])), v = cross(dir, u), m = h.subs.length, tilt = m > 1 ? 1 : 0;
+    h.subs.forEach((s, j) => {
+      const ph = j * TAU / m + turn, d = norm([0, 1, 2].map((k) => dir[k] * Math.cos(tilt) + (u[k] * Math.cos(ph) + v[k] * Math.sin(ph)) * Math.sin(tilt)));
+      s.p3 = [0, 1, 2].map((k) => h.p3[k] + d[k] * s.d3);
+      fan3(s, d, turn + 1.3);
+    });
+  };
+  const N = core.subs.length;
+  let ext = C(core);
+  core.p3 = [0, 0, 0];
+  core.subs.forEach((f, i) => {
+    const y = 1 - 2 * (i + 0.5) / N, q = Math.sqrt(1 - y * y), th = i * 2.39996, dir = [Math.cos(th) * q, y, Math.sin(th) * q];
+    reach3(f);
+    const L = C(core) + 20 + f.ext3 * 0.6;
+    f.p3 = dir.map((k) => k * L);
+    fan3(f, dir, i);
+    ext = Math.max(ext, L + f.ext3);
+  });
+  // Fit to what the tree really covers (the reach above is a generous bound for deep chains)
+  // and spin around the middle of the whole molecule, so one deep branch doesn't push it off-centre
+  const lo = [0, 0, 0], hi = [0, 0, 0];
+  for (const h of hubs.values()) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], h.p3[k] - C(h)); hi[k] = Math.max(hi[k], h.p3[k] + C(h)); }
+  ext = 0;
+  for (const h of hubs.values()) { h.p3 = h.p3.map((x, k) => x - (lo[k] + hi[k]) / 2); ext = Math.max(ext, Math.hypot(h.p3[0], h.p3[1], h.p3[2]) + C(h)); }
+  core.ext3 = ext;
+  E.fit3 = (Math.min(W, H) / 2 - 24) / ext;
+
+  // Flat layout (the other two styles): folders sit around the repo, each in its own circle
+  const R2 = (f) => 12 + Math.sqrt(f.n) * 4.2;
+  const total = core.subs.reduce((sum, f) => sum + R2(f), 0) || 1;
+  let ang = -Math.PI / 2, ext2 = 30;
+  core.R = 18; core.p2 = [0, 0]; core.q2 = [0, 0]; core.c2 = 18;
+  core.subs.forEach((f, i) => {
+    const R = R2(f), share = R / total * TAU, d = Math.max(R / Math.sin(Math.min(share, Math.PI) / 2), R + 24), th = ang + share / 2;
+    ang += share; f.R = R; f.p2 = [Math.cos(th) * d, Math.sin(th) * d]; ext2 = Math.max(ext2, d + R);
+    f.q2 = [0, 0];
+    // Each folder gets a circle (R) inside its parent's circle; its own files keep to the middle (c2)
+    const nest = (h) => {
+      const m = h.subs.length;
+      h.c2 = m ? Math.max(h.level === 1 ? 9 : 6, h.R * Math.sqrt(h.atoms.length / h.n) * 0.5) : h.R;
+      h.subs.forEach((s, j) => {
+        s.R = Math.max(7, h.R * Math.sqrt(s.n / h.n) * 0.62);
+        const sd = Math.max(h.R - s.R, h.r + s.r + 6), ph = j * TAU / m + i + h.level - 1;
+        s.q2 = [Math.cos(ph) * sd, Math.sin(ph) * sd];
+        nest(s);
+      });
+    };
+    nest(f);
+  });
+  E.fit2 = (Math.min(W, H) / 2 - 26) / ext2;
+
+  const under = (h, out) => { out.push(h); h.subs.forEach((s) => under(s, out)); return out; }; // parents before children
+  E.groups = [{ top: core, hubs: [core] }].concat(core.subs.map((f) => ({ top: f, hubs: under(f, []) })));
+  const items = [];
+  for (const g of E.groups) {
+    // Electron rings: one ring per folder that holds files, fuller folders on wider rings
+    const ringed = g.hubs.filter((h) => h.atoms.length).sort((a, b) => a.atoms.length - b.atoms.length);
+    ringed.forEach((h, k) => { h.ring = { rho: g.top.R * (ringed.length === 1 ? 1 : 0.5 + 0.5 * (k + 1) / ringed.length), rot: g.top.idx + k * Math.PI / ringed.length, dir: k % 2 ? -1 : 1 }; });
+    for (const h of g.hubs) {
+      items.push(h);
+      const sp = spread(h), room = Math.max(4, h.c2 - h.r - 3);
+      h.atoms.forEach((a, n) => {
+        const z = 2 * a.u[0] - 1, t = TAU * a.u[1], q = Math.sqrt(1 - z * z), d3 = h.r + 4 + Math.sqrt(a.u[2]) * sp;
+        a.p3 = [h.p3[0] + q * Math.cos(t) * d3, h.p3[1] + q * Math.sin(t) * d3, h.p3[2] + z * d3];
+        const t2 = TAU * a.u[3], d2 = h.r + 3 + Math.sqrt(a.u[4]) * room;
+        a.o2 = [Math.cos(t2) * d2, Math.sin(t2) * d2];
+        a.sp = (0.3 + 0.4 * a.u[4]) * (40 / (h.ring.rho + 20)) * h.ring.dir;
+        // Branching: bond to the nearest earlier atom, or straight to the hub if that is closer
+        let best = null, bd = d2;
+        for (let j = 0; j < n; j++) { const b = h.atoms[j], dd = Math.hypot(b.o2[0] - a.o2[0], b.o2[1] - a.o2[1]); if (dd < bd) { bd = dd; best = b; } }
+        a.link = best;
+        items.push(a);
+      });
+    }
+  }
+  E.prevHubs = oldHubs; E.prevFiles = old; // kept so a moved file can start from where it used to be
+  E.core = core; E.hubs = hubs; E.files = files; E.items = items; E.ready = true;
+  E.state = (data.dirty || []).length ? "dirty" : data.ahead ? "ahead" : "clean";
+  setFocus(E.focus && hubs.get(E.focus.key) === E.focus ? E.focus : core);
+}
+
+// ---------- zoom: the focused folder is centred and enlarged, everything else dims
+function setFocus(h) {
+  if (h !== E.focus) { E.cam.from = E.focus || h; E.cam.z0 = E.cam.z; E.cam.b = 0; E.focus = h; }
+  for (const x of E.hubs.values()) { let y = x; while (y && y !== h) y = y.parent; x.inFocus = !!y; }
+  if (E.crumb) E.crumb.textContent = h.key ? " › " + h.key.split("/").join(" › ") : "";
+}
+function zoomFor(h) {
+  if (!h.level) return 1;
+  const px = E.style === "ball" ? h.ext3 * E.fit3 : (h.level === 1 || E.style === "branch" ? h.R : h.ring ? h.ring.rho : h.top.R) * E.fit2;
+  return Math.min(10, Math.max(1, (Math.min(W, H) / 2 - 34) / px));
+}
+function camera(dt) {
+  const cam = E.cam, f = E.focus, from = cam.from || f;
+  cam.b = Math.min(1, cam.b + dt * 1.6);
+  const e = cam.b * cam.b * (3 - 2 * cam.b), cx = W / 2, cy = H / 2 + 10;
+  cam.z = cam.z0 + (zoomFor(f) - cam.z0) * e;
+  const x = from.sx + (f.sx - from.sx) * e, y = from.sy + (f.sy - from.sy) * e, rs = Math.sqrt(cam.z);
+  for (const o of E.items) { o.sx = cx + (o.sx - x) * cam.z; o.sy = cy + (o.sy - y) * cam.z; o.rs = rs; }
+}
+function click(hit) {
+  const now = Date.now();
+  if (now - E.lastClick < 350) return;
+  E.lastClick = now;
+  if (goddardHit()) { goddardClick(); return; }
+  if (!hit) { // empty space: back to the full view
+    if (E.focus !== E.core) { setFocus(E.core); E.zoomedOutAt = now; }
+    return;
+  }
+  if (hit.isHub) setFocus(hit === E.focus ? hit.parent || hit : hit); // the centred atom steps back out
+  else if (hit.hub !== E.focus) setFocus(hit.hub);
+}
+
+// ---------- commits -> sparks
+function hubFor(path, hubs = E.hubs) {
+  for (let cut = path.lastIndexOf("/"); cut > 0; cut = path.lastIndexOf("/", cut - 1)) { const h = hubs.get(path.slice(0, cut)); if (h) return h; }
+  return hubs.get("");
+}
+// The chain from the repo down to an atom: every folder on the way, then (branching style) the file bonds
+function chain(o, links) {
+  const nodes = [];
+  for (let n = o.isHub ? null : o; n; n = links ? n.link : null) nodes.unshift(n);
+  for (let h = o.isHub ? o : o.hub; h; h = h.parent) nodes.unshift(h);
+  return nodes;
+}
+function launch(target) {
+  const nodes = chain(target, true);
+  if (E.style === "branch" && nodes.length > 1) E.flyers.push({ t: 0, target, nodes });
+  else if (GD.mouth) E.flyers.push({ t: 0, target, x: GD.mouth.x, y: GD.mouth.y }); // barked out of Goddard's mouth
+  else E.flyers.push({ t: 0, target, x: Math.random() < 0.5 ? -10 : W + 10, y: Math.random() * H * 0.5 });
+}
+function handleEvents(events) {
+  if (!E.seen) { E.seen = new Set(events.map((ev) => ev.id)); return; } // nothing to animate on first load
+  let delay = 0;
+  for (const ev of events) {
+    if (E.seen.has(ev.id)) continue;
+    E.seen.add(ev.id);
+    ev.files.slice(0, MAX_SPARKS).forEach(([status, path, oldPath]) => {
+      if (status === "R" && oldPath && queueMove(oldPath, path, delay)) { delay += 150; return; }
+      const atom = E.files.get(path), target = atom || hubFor(path);
+      if (atom && status === "A") { atom.hidden = true; atom.pulse = 0; } // appears when its spark lands
+      setTimeout(() => launch(target), delay);
+      delay += 150;
+    });
+    if (ev.files.length) goddardEvent(ev.files);
+    if (ev.files.length && E.tag) {
+      const p = ev.files[0][1], added = ev.files.some((f) => f[0] === "A"), moved = ev.files.some((f) => f[0] === "R");
+      E.tag.textContent = (moved ? "→ " : added ? "+ " : "↻ ") + (p.indexOf("/") > 0 ? p.split("/")[0] : REPO_NAME);
+      E.tag.classList.add("show");
+      clearTimeout(E.tagTimer);
+      E.tagTimer = setTimeout(() => E.tag && E.tag.classList.remove("show"), delay + 3500);
+    }
+  }
+}
+function update(output) {
+  if (!output || output === E.lastOutput) return;
+  E.lastOutput = output;
+  let data;
+  try { data = JSON.parse(output); } catch (e) { return; }
+  if (!data || !data.files) return;
+  E.lastData = data;
+  rebuild(data);
+  trackMoves(data.files);
+  handleEvents(data.events || []);
+}
+
+// ---------- moves: a file that changes folder pops off its old branch and flies to the new one
+const nameOf = (p) => p.slice(p.lastIndexOf("/") + 1);
+const dirOf = (p) => p.slice(0, Math.max(0, p.lastIndexOf("/")));
+// The deepest folder atom that held a path, preferring the one still on screen
+function oldSpot(path) {
+  const g = E.gone.get(path);
+  if (g) return g.obj;
+  const a = (E.prevFiles && E.prevFiles.get(path)) || E.files.get(path);
+  if (a) return a;
+  const h1 = hubFor(path), h0 = (E.prevHubs && E.prevHubs.size && hubFor(path, E.prevHubs)) || h1;
+  return h0.level > h1.level ? h0 : h1;
+}
+// Returns true when the move is (or already was) animated, so no ordinary spark is needed
+function queueMove(oldPath, newPath, delay) {
+  const key = oldPath + ">" + newPath;
+  if (E.moved.has(key)) return true;
+  if (dirOf(oldPath) === dirOf(newPath)) return false; // renamed in place: not a move
+  E.moved.add(key);
+  if (E.moved.size > 500) E.moved.delete(E.moved.values().next().value);
+  const from = oldSpot(oldPath), atom = E.files.get(newPath), to = atom || hubFor(newPath);
+  E.gone.delete(oldPath);
+  if (from === to) return false;
+  if (atom) { atom.hidden = true; atom.pulse = 0; } // appears when its bubble lands
+  const hueOf = (o) => (o.isHub ? o.hue : o.hub.hue);
+  setTimeout(() => E.flyers.push({ move: true, t: 0, from, to, hue0: hueOf(from), hue1: hueOf(to), r: from.isHub ? 3.4 : from.r + 0.8, side: Math.random() < 0.5 ? -1 : 1, spin: Math.random() * TAU }), delay);
+  return true;
+}
+// Catches moves between snapshots too (git mv, a pull, or a file moved in Finder that the
+// auto-save commits a little later): a file that vanished and turns up by name somewhere else
+function trackMoves(list) {
+  const now = new Map(list), before = E.lastFiles, t = Date.now();
+  E.lastFiles = now;
+  for (const [p, g] of E.gone) if (t - g.at > MOVE_MEMORY || now.has(p)) E.gone.delete(p);
+  if (!before) return;
+  for (const [p, size] of before) if (!now.has(p)) E.gone.set(p, { size, at: t, obj: oldSpot(p) });
+  if (!E.gone.size) return;
+  const waiting = new Map();
+  for (const [p, g] of E.gone) { const n = nameOf(p); if (!waiting.has(n)) waiting.set(n, []); waiting.get(n).push(p); }
+  let delay = 0, count = 0;
+  for (const [p, size] of now) {
+    if (before.has(p) || count >= MAX_SPARKS) continue;
+    const cands = waiting.get(nameOf(p));
+    if (!cands || !cands.length) continue;
+    let i = cands.findIndex((q) => E.gone.get(q).size === size); // same name and size: surely the same file
+    if (i < 0) { if (cands.length > 1) continue; i = 0; }        // same name, edited on the way: only if it's the only one
+    const q = cands.splice(i, 1)[0];
+    if (queueMove(q, p, delay)) { delay += 150; count++; }
+  }
+}
+
+// ---------- drawing
+function sprite(hue) {
+  if (E.sprites[hue]) return E.sprites[hue];
+  const s = document.createElement("canvas"); s.width = s.height = 64;
+  const g = s.getContext("2d"), gr = g.createRadialGradient(21, 21, 3, 32, 32, 31);
+  gr.addColorStop(0, hue === "core" ? "hsl(220,15%,94%)" : `hsl(${hue},85%,82%)`);
+  gr.addColorStop(1, hue === "core" ? "hsl(220,15%,45%)" : `hsl(${hue},68%,38%)`);
+  g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 31, 0, TAU); g.fill();
+  return (E.sprites[hue] = s);
+}
+const stroke = (hue, alpha) => (hue === "core" ? `rgba(255,255,255,${alpha})` : `hsla(${hue},70%,80%,${alpha})`);
+
+// Works out where everything is on screen for the current style
+function place(t) {
+  const cx = W / 2, cy = H / 2 + 10;
+  if (E.style === "ball") {
+    const a = t * 0.25, b = 0.35 + Math.sin(t * 0.2) * 0.15, ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), f = E.fit3;
+    for (const o of E.items) { // spin around the vertical axis, with a slow nod
+      const p = o.p3, x1 = p[0] * ca + p[2] * sa, z1 = -p[0] * sa + p[2] * ca, y1 = p[1] * cb - z1 * sb, z2 = (p[1] * sb + z1 * cb) * f, k = 600 / (600 + z2);
+      o.sx = cx + x1 * f * k; o.sy = cy + y1 * f * k; o.k = k; o.z = z2;
+    }
+    return;
+  }
+  const f = E.fit2, branch = E.style === "branch";
+  for (const g of E.groups) {
+    const top = g.top, bob = top.level ? 3 : 0, rot = branch ? t * 0.05 * top.dir : 0, co = Math.cos(rot), si = Math.sin(rot);
+    top.sx = cx + top.p2[0] * f + Math.sin(t * 0.4 + top.idx * 2) * bob; top.sy = cy + top.p2[1] * f + Math.cos(t * 0.33 + top.idx * 3) * bob;
+    for (const h of g.hubs) {
+      h.k = 1; h.z = 0;
+      if (h !== top) { h.sx = h.parent.sx + (branch ? (h.q2[0] * co - h.q2[1] * si) * f : 0); h.sy = h.parent.sy + (branch ? (h.q2[0] * si + h.q2[1] * co) * f : 0); }
+      if (h !== top && !branch && !SHOW_FILES) { // without documents, the subfolders are the electrons: deeper ones on wider rings
+        const d = h.level - 1, rho = top.R * (0.3 + 0.7 * d / top.depth) * f, an = TAU * h.ou + t * 0.5 / d * top.dir, x = Math.cos(an) * rho, y = Math.sin(an) * rho * 0.36, r0 = top.idx + t * 0.08;
+        h.sx = top.sx + x * Math.cos(r0) - y * Math.sin(r0); h.sy = top.sy + x * Math.sin(r0) + y * Math.cos(r0);
+      }
+      const rr = h.ring ? h.ring.rot + t * 0.08 : 0, rc = Math.cos(rr), rs = Math.sin(rr);
+      for (const a of h.atoms) {
+        a.k = 1; a.z = 0;
+        if (branch) {
+          a.sx = h.sx + (a.o2[0] * co - a.o2[1] * si) * f + Math.sin(t * 1.2 + a.u[0] * 6) * 1.2;
+          a.sy = h.sy + (a.o2[0] * si + a.o2[1] * co) * f + Math.cos(t * 1.1 + a.u[1] * 6) * 1.2;
+        } else {
+          const an = TAU * a.u[3] + t * a.sp, x = Math.cos(an) * h.ring.rho * f, y = Math.sin(an) * h.ring.rho * 0.36 * f;
+          a.sx = top.sx + x * rc - y * rs; a.sy = top.sy + x * rs + y * rc;
+        }
+      }
+    }
+  }
+}
+
+function draw(t, dt) {
+  const c = E.ctx, core = E.core, st = E.style, ball = st === "ball", electrons = st === "electrons";
+  c.clearRect(0, 0, W, H);
+  place(t);
+  camera(dt);
+  pickHover();
+
+  // Bonds
+  if (electrons) {
+    c.strokeStyle = "rgba(255,255,255,.3)"; c.lineWidth = 1.2; c.beginPath();
+    for (const f of core.subs) {
+      const dx = f.sx - core.sx, dy = f.sy - core.sy, l = Math.hypot(dx, dy) || 1, nx = -dy / l * 2, ny = dx / l * 2;
+      c.moveTo(core.sx + nx, core.sy + ny); c.lineTo(f.sx + nx, f.sy + ny); c.moveTo(core.sx - nx, core.sy - ny); c.lineTo(f.sx - nx, f.sy - ny);
+    }
+    c.stroke();
+    c.lineWidth = 0.8;
+    for (const g of E.groups) {
+      c.strokeStyle = stroke(g.top.hue, 0.25); c.beginPath();
+      for (const h of g.hubs) if (h.ring && h.atoms.length) { const rho = h.ring.rho * E.fit2 * E.cam.z; c.save(); c.translate(g.top.sx, g.top.sy); c.rotate(h.ring.rot + t * 0.08); c.moveTo(rho, 0); c.ellipse(0, 0, rho, rho * 0.36, 0, 0, TAU); c.restore(); }
+      if (!SHOW_FILES) for (let d = 1; d <= g.top.depth; d++) { const rho = g.top.R * (0.3 + 0.7 * d / g.top.depth) * E.fit2 * E.cam.z; c.save(); c.translate(g.top.sx, g.top.sy); c.rotate(g.top.idx + t * 0.08); c.moveTo(rho, 0); c.ellipse(0, 0, rho, rho * 0.36, 0, 0, TAU); c.restore(); }
+      c.stroke();
+    }
+  } else {
+    c.strokeStyle = "rgba(255,255,255,.32)"; c.lineWidth = 2; c.beginPath();
+    for (const f of core.subs) { c.moveTo(core.sx, core.sy); c.lineTo(f.sx, f.sy); }
+    c.stroke();
+    c.lineWidth = 1.3; c.beginPath();
+    for (const h of E.hubs.values()) if (h.level > 1) { c.moveTo(h.parent.sx, h.parent.sy); c.lineTo(h.sx, h.sy); } // folder to subfolder, every level
+    c.stroke();
+    c.lineWidth = 0.7;
+    for (const g of E.groups) {
+      c.strokeStyle = stroke(g.top.hue, ball ? 0.22 : 0.4); c.beginPath();
+      for (const h of g.hubs) for (const a of h.atoms) {
+        if (a.hidden) continue;
+        const to = !ball && a.link && !a.link.hidden ? a.link : h;
+        c.moveTo(a.sx, a.sy); c.lineTo(to.sx, to.sy);
+      }
+      c.stroke();
+    }
+  }
+
+  // The chain of whatever is pointed at, lit from the repo all the way to it
+  const litChain = new Set(E.hover ? chain(E.hover, st === "branch") : []);
+  if (E.hover) {
+    const nodes = chain(E.hover, st === "branch");
+    c.strokeStyle = "rgba(255,255,255,.95)"; c.lineWidth = 1.6; c.lineJoin = "round"; c.beginPath();
+    c.moveTo(nodes[0].sx, nodes[0].sy);
+    for (let k = 1; k < nodes.length; k++) c.lineTo(nodes[k].sx, nodes[k].sy);
+    c.stroke();
+  }
+
+  // Atoms, far ones first
+  if (ball) E.items.sort((m, n) => n.z - m.z);
+  c.font = "10px -apple-system"; c.textAlign = "center";
+  for (const o of E.items) {
+    if (o.hidden || (SHOW_FILES && electrons && o.level >= 2)) continue;
+    const hue = o.isHub ? o.hue : o.hub.hue, r = (o.r + o.pulse * 3) * o.k * o.rs, lit = (o.isHub ? o : o.hub).inFocus;
+    const onChain = litChain.has(o);
+    c.globalAlpha = onChain ? 1 : (ball ? Math.min(1, Math.max(0.4, 0.4 + (o.k - 0.75) * 1.6)) : 1) * (lit ? 1 : 0.22);
+    c.drawImage(sprite(hue), o.sx - r, o.sy - r, r * 2, r * 2);
+    if (o.dirty) { c.strokeStyle = `rgba(255,190,90,${0.5 + 0.3 * Math.sin(t * 3)})`; c.lineWidth = 1; c.beginPath(); c.arc(o.sx, o.sy, r + 2.5, 0, TAU); c.stroke(); }
+    if (o.pulse > 0) {
+      c.strokeStyle = `rgba(255,255,255,${o.pulse * 0.8})`; c.lineWidth = 1; c.beginPath(); c.arc(o.sx, o.sy, r + (1 - o.pulse) * 14, 0, TAU); c.stroke();
+      o.pulse = Math.max(0, o.pulse - dt * 0.7);
+    }
+    if (o === E.hover) { c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.beginPath(); c.arc(o.sx, o.sy, Math.max(r, 2) + 3, 0, TAU); c.stroke(); }
+    if (o.level === 1 || (o.level >= 2 && ((lit && E.focus.level && o.level <= E.focus.level + 1) || onChain))) { // deeper names appear once you zoom in, or along a lit chain
+      const ly = ball || o.level >= 2 ? o.sy + r + 11 : o.sy + o.R * E.fit2 * E.cam.z + 11;
+      c.fillStyle = "rgba(255,255,255,.65)"; c.fillText(o.name, o.sx, !ball && lit ? Math.min(H - 5, ly) : ly);
+    }
+  }
+  c.globalAlpha = 1;
+
+  // Commit sparks
+  for (let i = E.flyers.length - 1; i >= 0; i--) {
+    const f = E.flyers[i];
+    if (f.move) { if (drawMove(c, f, dt)) E.flyers.splice(i, 1); continue; }
+    if (f.fetch) { if (drawFetch(c, f, dt)) E.flyers.splice(i, 1); continue; }
+    let x, y;
+    c.strokeStyle = "rgba(255,255,255,.6)"; c.lineWidth = 1.5; c.beginPath();
+    if (f.nodes) { // runs from the repo along the bonds
+      f.t += dt * 0.5;
+      const n = f.nodes.length - 1, q = Math.min(Math.min(f.t, 1) * n, n - 1e-6), j = Math.floor(q), u = q - j;
+      x = f.nodes[j].sx + (f.nodes[j + 1].sx - f.nodes[j].sx) * u; y = f.nodes[j].sy + (f.nodes[j + 1].sy - f.nodes[j].sy) * u;
+      c.moveTo(f.nodes[0].sx, f.nodes[0].sy);
+      for (let k = 1; k <= j; k++) c.lineTo(f.nodes[k].sx, f.nodes[k].sy);
+      c.lineTo(x, y);
+    } else { // streaks in from the edge
+      f.t += dt * 0.85;
+      const e = 1 - Math.pow(1 - Math.min(f.t, 1), 3), e2 = Math.max(e - 0.12, 0);
+      x = f.x + (f.target.sx - f.x) * e; y = f.y + (f.target.sy - f.y) * e;
+      c.moveTo(f.x + (f.target.sx - f.x) * e2, f.y + (f.target.sy - f.y) * e2); c.lineTo(x, y);
+    }
+    c.stroke();
+    f.cx = x; f.cy = y;
+    c.shadowColor = "#fff"; c.shadowBlur = 12; c.fillStyle = "#fff"; c.beginPath(); c.arc(x, y, 2.6, 0, TAU); c.fill(); c.shadowBlur = 0;
+    if (f.t >= 1) {
+      goddardSpark();
+      f.target.hidden = false; f.target.pulse = 1;
+      if (f.target.hub) f.target.hub.pulse = Math.max(f.target.hub.pulse, 0.6);
+      E.flyers.splice(i, 1);
+    }
+  }
+}
+
+// ---------- Goddard and the bubbles (drawn on the molecule canvas, under him)
+// Fetch: a bubble he spits at a folder; it bumps the folder and bounces back into his mouth
+function drawFetch(c, f, dt) {
+  f.t += dt;
+  const OUT = 1.0, BACK = 1.0, m = GD.mouth || { x: 40, y: 40 }, to = f.to, r = 3.4 * Math.sqrt(E.cam.z);
+  let u, x0, y0, x2, y2;
+  if (f.t < OUT) { u = f.t / OUT; x0 = m.x; y0 = m.y; x2 = to.sx; y2 = to.sy; }
+  else { if (!f.hit) { f.hit = true; to.pulse = 1; } u = Math.min(1, (f.t - OUT - 0.1) / BACK); if (u < 0) u = 0; x0 = to.sx; y0 = to.sy; x2 = m.x; y2 = m.y; }
+  const e = u * u * (3 - 2 * u), lift = Math.min(90, Math.hypot(x2 - x0, y2 - y0) * 0.45);
+  const x = x0 + (x2 - x0) * e, y = y0 + (y2 - y0) * e - Math.sin(Math.PI * e) * lift; // a lobbed ball
+  f.cx = x; f.cy = y;
+  bubble(c, f.hue, x, y, r, 1);
+  return f.t >= OUT + 0.1 + BACK;
+}
+function goddardFetch() {
+  const pool = [...E.hubs.values()].filter((h) => h.level >= 1 && h.level <= 2 && (!E.focus.level || h.inFocus));
+  if (!pool.length) return;
+  const to = pool[Math.floor(Math.random() * pool.length)];
+  setTimeout(() => E.flyers.push({ fetch: true, t: 0, to, hue: to.hue }), 300); // leaves as his jaw opens
+}
+// Everything else he does to the molecule, once per frame
+function drawGoddardFx(c, dt) {
+  const m = GD.mouth;
+  if (!m) return;
+  // Analyze: a scan ring sweeps out from him; each folder lights as it passes
+  if (GD.scan) {
+    GD.scan.t += dt;
+    const R = GD.scan.t * 420, a = Math.max(0, 1 - GD.scan.t / 1.3);
+    c.strokeStyle = `rgba(150,220,255,${0.7 * a})`; c.lineWidth = 1.5; c.beginPath(); c.arc(m.x, m.y, R, 0, TAU); c.stroke();
+    for (const h of E.hubs.values()) if (!GD.scan.seen.has(h) && Math.hypot(h.sx - m.x, h.sy - m.y) < R) { GD.scan.seen.add(h); h.pulse = Math.max(h.pulse, 0.9); }
+    if (GD.scan.t > 1.3) GD.scan = null;
+  }
+  // Asleep: Zzz bubbles drift up from his head
+  if (GD.posture === "lie" && GD.head && (GD.nextZ -= dt) < 0) { GD.zzz.push({ x: GD.head.x, y: GD.head.y, t: 0, s: GD.zzz.length % 2 ? 1 : -1 }); GD.nextZ = 1.4; }
+  for (let i = GD.zzz.length - 1; i >= 0; i--) {
+    const z = GD.zzz[i]; z.t += dt;
+    const a = Math.max(0, 1 - z.t / 3), x = z.x + Math.sin(z.t * 2) * 5 * z.s + z.t * 6, y = z.y - z.t * 16, r = 2 + z.t * 2;
+    c.strokeStyle = `rgba(200,220,255,${0.6 * a})`; c.lineWidth = 1; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
+    if (z.t > 0.6) { c.fillStyle = `rgba(200,220,255,${0.7 * a})`; c.font = `${7 + z.t * 2}px -apple-system`; c.fillText("z", x + r + 3, y - r); }
+    if (z.t > 3) GD.zzz.splice(i, 1);
+  }
+}
+
+// A moving file: swells out of its old folder on a thinning neck, pops free (ring and droplets),
+// then arcs over to its new folder, taking on that branch's colour as it goes
+function bubble(c, hue, x, y, r, a) {
+  if (a <= 0.01) return;
+  c.globalAlpha = a; c.shadowColor = "#fff"; c.shadowBlur = 8;
+  c.drawImage(sprite(hue), x - r, y - r, r * 2, r * 2);
+  c.shadowBlur = 0; c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 1; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
+  c.globalAlpha = 1;
+}
+function drawMove(c, f, dt) {
+  const POP = 0.4, FLY = 1.1, from = f.from, to = f.to, core = E.core, r = f.r * Math.sqrt(E.cam.z);
+  f.t += dt;
+  if (f.t < POP) {
+    let dx = from.sx - core.sx, dy = from.sy - core.sy, l = Math.hypot(dx, dy);
+    if (l < 1) { dx = 0; dy = -1; l = 1; }
+    const off = Math.max(from.r * (from.k || 1) * (from.rs || 1), 3) + r + 4, u = f.t / POP, e = 1 - Math.pow(1 - u, 3);
+    const x = from.sx + dx / l * off * e, y = from.sy + dy / l * off * e;
+    f.px = x; f.py = y;
+    c.strokeStyle = stroke(f.hue0, 0.7 * (1 - u)); c.lineWidth = r * (1 - u) + 0.4; c.beginPath(); c.moveTo(from.sx, from.sy); c.lineTo(x, y); c.stroke();
+    bubble(c, f.hue0, x, y, r * (0.4 + 0.8 * e), 1);
+    return false;
+  }
+  if (!f.popped) { f.popped = true; if (E.hubs.get(from.key) === from || E.files.get(from.path) === from) from.pulse = Math.max(from.pulse, 0.7); }
+  const age = f.t - POP, v = Math.min(1, age / FLY), e = v * v * (3 - 2 * v);
+  if (age < 0.5) { // the pop, left behind on the old branch
+    const a = 1 - age / 0.5;
+    c.strokeStyle = `rgba(255,255,255,${0.8 * a})`; c.lineWidth = 1.2; c.beginPath(); c.arc(f.px, f.py, r + 3 + age * 30, 0, TAU); c.stroke();
+    c.fillStyle = stroke(f.hue0, a);
+    for (let k = 0; k < 6; k++) { const an = f.spin + k * TAU / 6, d = r + 2 + age * 40; c.beginPath(); c.arc(f.px + Math.cos(an) * d, f.py + Math.sin(an) * d, 0.4 + 1.2 * a, 0, TAU); c.fill(); }
+  }
+  const x0 = f.px, y0 = f.py, x2 = to.sx, y2 = to.sy, dd = Math.hypot(x2 - x0, y2 - y0) || 1;
+  const bend = Math.min(80, dd * 0.35) * f.side, cx = (x0 + x2) / 2 - (y2 - y0) / dd * bend, cy = (y0 + y2) / 2 + (x2 - x0) / dd * bend;
+  const at = (s) => { const m = 1 - s; return [m * m * x0 + 2 * m * s * cx + s * s * x2, m * m * y0 + 2 * m * s * cy + s * s * y2]; };
+  const s0 = Math.max(0, e - 0.25);
+  c.strokeStyle = stroke(f.hue1, 0.4); c.lineWidth = 1.2; c.beginPath();
+  for (let k = 0; k <= 8; k++) { const p = at(s0 + (e - s0) * k / 8); if (k) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }
+  c.stroke();
+  const [x, y] = at(e);
+  f.cx = x; f.cy = y;
+  bubble(c, f.hue0, x, y, r, 1 - e); bubble(c, f.hue1, x, y, r, e);
+  if (v < 1) return false;
+  to.hidden = false; to.pulse = 1; goddardSpark();
+  if (to.hub) to.hub.pulse = Math.max(to.hub.pulse, 0.6);
+  return true;
+}
+
+// ---------- hover: which atom is under the mouse, and a small label for it
+const fmtSize = (b) => { // biggest unit that keeps the number at 1 or more; 1 decimal under 10
+  const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (i ? b.toFixed(b < 10 ? 1 : 0) : b) + " " + u[i];
+};
+function pickHover() {
+  let best = null, bd = 3;
+  if (E.mouse && !E.dragging && E.menu.style.display !== "block") {
+    for (const o of E.items) {
+      if (o.hidden || (SHOW_FILES && E.style === "electrons" && o.level >= 2)) continue;
+      const d = Math.hypot(E.mouse.x - o.sx, E.mouse.y - o.sy) - Math.max(o.r * o.k * o.rs, 3);
+      if (d < bd) { bd = d; best = o; }
+    }
+  }
+  if (best !== E.hover) {
+    E.hover = best;
+    E.tip.style.display = best ? "block" : "none";
+    if (best) {
+      const full = best.isHub ? best.key : best.path, cut = full.lastIndexOf("/");
+      E.tip.firstChild.textContent = full ? full.slice(cut + 1) : REPO_NAME;
+      E.tip.children[1].textContent = full ? [REPO_NAME].concat(cut > 0 ? full.slice(0, cut).split("/") : []).join(" › ") : "";
+      E.tip.lastChild.textContent = best.isHub ? best.n + (best.n === 1 ? " file · " : " files · ") + fmtSize(best.size) : fmtSize(best.size);
+      E.tipW = E.tip.offsetWidth; E.tipH = E.tip.offsetHeight;
+    }
+  }
+  if (best) {
+    E.tip.style.left = Math.max(6, Math.min(best.sx + 10, W - E.tipW - 6)) + "px";
+    E.tip.style.top = (best.sy + 14 + E.tipH > H - 6 ? best.sy - 12 - E.tipH : best.sy + 14) + "px";
+  }
+}
+
+function frame(ms) {
+  if (!E.el || !E.el.isConnected) { E.running = false; return; }
+  requestAnimationFrame(frame);
+  if (ms - E.last < 1000 / FPS - 2) return;
+  const dt = Math.min(0.1, (ms - E.last) / 1000);
+  E.last = ms;
+  if (!E.hover) E.clock += dt; // hold still while something is being pointed at
+  if (E.ready) { draw(E.clock, dt); drawGoddardFx(E.ctx, dt); }
+  drawGoddard(ms / 1000, dt);
+  const cls = "dot " + E.state + (E.flyers.length ? " live" : "");
+  if (E.dot.className !== cls) E.dot.className = cls;
+}
+
+// ---------- Goddard: the 3-D robot dog in the corner
+let GODDARD_PX = 84; // canvas size in points
+// Finishes, after the show and the real build: Ultralumen chrome over gloss black, purple TPU sleeves,
+// matte yellow accents. [colour, metal 0-1, gloss 0-1]; parts pick one by name in goddard.json
+const PAINT = {
+  silver: [[0.86, 0.89, 0.94], 1, 1], black: [[0.05, 0.05, 0.06], 0, 0.85], white: [[0.93, 0.95, 0.97], 0, 0.5],
+  pink: [[0.97, 0.47, 0.64], 0, 0.45], purple: [[0.5, 0.28, 0.86], 0, 0.2], yellow: [[0.98, 0.78, 0.16], 0, 0.15],
+  // N112YS-inspired scheme (2026-11-10): metallic blue body, off-white head, maroon accents
+  blue: [[0.08, 0.40, 0.68], 0.8, 1], offwhite: [[0.91, 0.89, 0.87], 0, 0.6], maroon: [[0.37, 0.08, 0.10], 0.2, 0.9],
+  maroonAnodized: [[0.42, 0.09, 0.13], 0.6, 0.5], blackPlastic: [[0.07, 0.07, 0.08], 0, 0.3], navy: [[0.055, 0.094, 0.157], 0.2, 0.9],
+  aluminium: [[0.79, 0.80, 0.82], 1, 0.7],
+};
+// Paint per part name; overrides the colour in goddard.json. The top jaw also gets a machined
+// aluminium nose and a maroon band set back from it (worked out in the shader, see JAW_ZONE).
+const PART_PAINT = {
+  "body": "blue", "body lid": "blue", "tail": "blue", "leg ring (x4)": "blue", "tail cap": "maroon",
+  "neck base": "navy", "neck tube": "offwhite", "neck head base": "offwhite",
+  "leg tube (x4)": "blackPlastic", "foot (x4)": "maroonAnodized",
+  "top jaw": "offwhite", "bottom jaw": "offwhite", "plasma ball cap": "offwhite", "antenna ring (x2)": "offwhite", "antenna tip": "offwhite",
+  "ears": "black", "eyes": "maroon",
+};
+const JAW_ZONE = { nose: -415, bandFrom: -395, bandTo: -383 }; // CAD mm along Y (nose toward -Y)
+// Pivots in CAD millimetres (Z up, nose toward -Y)
+const PIVOT = { head: [0, -150, 210], jaw: [0, -191, 214], tail: [0, 183, 200] };
+const BRAIN = { at: [0, -241, 291], r: 60 }; // the 5 in plasma ball, sitting in the plasma ball cap
+const EYE_GLOW = [0.65, 0.9, 1.0];
+const LEG_REAR = 130; // mm from the front legs to the back legs (only one leg was exported)
+const LEG_STROKE = 60;   // mm the body drops at a leg when its actuator goes from 1 to 0 (real stroke is 50 mm)
+const BODY_MID = [0, 76.5, 120], BURST_FROM = [0, -100, 200];
+const SLEEP_AFTER = 20 * 60;  // s with nothing happening before he lies down
+const GD = {
+  gl: null, prog: null, parts: [], ready: false, loading: false, moves: null,
+  j: null, move: null, queue: [], posture: "stand", look: 0, flash: 0, wagPhase: 0, blink: 0, nextBlink: 3,
+  lastActive: 0, nextTrick: 30, nextBeg: 6, petting: false, now: 0,
+  seed: 0, full: false, mouth: null, head: null, scan: null, point: null, zzz: [], nextZ: 0,
+};
+
+const M4 = {
+  mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = v; } return o; },
+  id() { return new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]); },
+  t(x, y, z) { const m = M4.id(); m[12] = x; m[13] = y; m[14] = z; return m; },
+  s(x, y, z) { const m = M4.id(); m[0] = x; m[5] = y; m[10] = z; return m; },
+  rx(a) { const c = Math.cos(a), s = Math.sin(a), m = M4.id(); m[5] = c; m[6] = s; m[9] = -s; m[10] = c; return m; },
+  ry(a) { const c = Math.cos(a), s = Math.sin(a), m = M4.id(); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; },
+  rz(a) { const c = Math.cos(a), s = Math.sin(a), m = M4.id(); m[0] = c; m[1] = s; m[4] = -s; m[5] = c; return m; },
+  persp(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2), m = new Float32Array(16); m[0] = t / asp; m[5] = t; m[10] = (f + n) / (n - f); m[11] = -1; m[14] = 2 * f * n / (n - f); return m; },
+  apply(m, v) { return [0, 1, 2].map((r) => m[r] * v[0] + m[4 + r] * v[1] + m[8 + r] * v[2] + m[12 + r]); },
+  about(p, rot) { return M4.mul(M4.t(p[0], p[1], p[2]), M4.mul(rot, M4.t(-p[0], -p[1], -p[2]))); },
+};
+
+function goddardInit(cv) {
+  if (GD.gl && GD.gl.canvas === cv) return;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.height = Math.round(GODDARD_PX * dpr * 1.5);
+  const gl = cv.getContext("webgl", { alpha: true, antialias: true, premultipliedAlpha: true });
+  if (!gl) return;
+  const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, `
+    attribute vec3 p; attribute vec3 n; uniform mat4 M; uniform mat4 VP; varying vec3 vn; varying vec3 vw; varying vec3 vp;
+    void main() { vec4 w = M * vec4(p, 1.0); vw = w.xyz; vp = p; vn = mat3(M) * n; gl_Position = VP * w; }`));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `
+    precision highp float; uniform vec3 col; uniform float shine; uniform float metal; uniform vec3 eye; uniform float mode; uniform float glow;
+    uniform float time; uniform vec3 brain; uniform float brainR; uniform float power; uniform float zone; varying vec3 vn; varying vec3 vw; varying vec3 vp;
+    // One plasma tendril: how close the view ray passes to the segment from the centre out to the glass
+    float tendril(vec3 O, vec3 v, vec3 u, float k) {
+      vec3 w0 = brain - O; float b = dot(u, v), d = dot(u, w0), e = dot(v, w0), den = max(1.0 - b * b, 1e-4);
+      float s = clamp((b * e - d) / den, 0.0, brainR);
+      vec3 P = brain + u * s; float t = dot(P - O, v), dist = length(P - (O + v * t));
+      float wig = 2.2 + 1.4 * glow;
+      return exp(-dist * dist / (wig * wig)) * (0.35 + 0.65 * s / brainR) + exp(-dist * dist / 90.0) * 0.12 * k;
+    }
+    void main() {
+      vec3 N = normalize(vn), V = normalize(eye - vw);
+      if (mode > 1.5) {                                               // plasma ball
+        vec3 v = -V, f = vec3(0.0);
+        for (int k = 0; k < 7; k++) {
+          float fk = float(k), a = fk * 0.8976 + time * (0.35 + 0.07 * fk) + sin(time * 1.3 + fk) * 0.4, el = sin(time * 0.5 + fk * 2.3) * 1.1;
+          vec3 u = normalize(vec3(cos(a) * cos(el), sin(el), sin(a) * cos(el)));
+          f += vec3(1.0, 0.5, 1.0) * tendril(eye, v, u, 1.0);
+        }
+        vec3 w0 = brain - eye; float t = dot(w0, v), core = length(w0 - v * t);
+        f += vec3(1.0, 0.85, 1.0) * exp(-core * core / 120.0) * (1.2 + glow);
+        float rim = pow(1.0 - abs(dot(N, V)), 2.5);
+        vec3 c = vec3(0.18, 0.05, 0.32) + f * (1.1 + 0.9 * glow) + vec3(0.55, 0.45, 1.0) * rim * 0.7;
+        c = mix(vec3(0.08, 0.06, 0.12) + vec3(0.55, 0.45, 1.0) * rim * 0.5, c, power);   // switched off: dark glass
+        gl_FragColor = vec4(c, (0.5 + 0.5 * clamp(length(f), 0.0, 1.0)) * (0.55 + 0.45 * power));
+        return;
+      }
+      if (mode > 0.5) {                                               // glowing eyes
+        float facing = max(dot(N, V), 0.0);
+        gl_FragColor = vec4(col * (0.75 + 0.35 * facing), 1.0);
+        return;
+      }
+      if (dot(N, V) < 0.0) N = -N;                                   // light both faces (mirrored legs)
+      vec3 C = col; float MT = metal, SH = shine;
+      if (zone > 0.5) {                                               // top jaw: machined aluminium nose, maroon band behind it
+        if (vp.y < ${JAW_ZONE.nose.toFixed(1)}) { C = vec3(0.79, 0.80, 0.82) * (1.0 + 0.04 * sin(length(vp.xz - vec2(0.0, 220.0)) * 0.8)); MT = 1.0; SH = 0.7; }
+        else if (vp.y >= ${JAW_ZONE.bandFrom.toFixed(1)} && vp.y < ${JAW_ZONE.bandTo.toFixed(1)}) { C = vec3(0.37, 0.08, 0.10); MT = 0.2; SH = 0.9; }
+      }
+      // A photo studio for the chrome to reflect: bright sky, a hard horizon, dark floor, two softboxes
+      vec3 R = reflect(-V, N);
+      float y = R.y;
+      vec3 env = y > 0.0 ? mix(vec3(0.62, 0.68, 0.8), vec3(1.0, 1.0, 1.05), smoothstep(-0.05, 0.7, y))
+                         : mix(vec3(0.05, 0.05, 0.07), vec3(0.3, 0.32, 0.38), smoothstep(-0.6, 0.05, y));
+      env += vec3(1.1) * smoothstep(0.82, 0.97, dot(R, normalize(vec3(-0.6, 0.65, 0.45))));
+      env += vec3(0.7, 0.8, 1.0) * smoothstep(0.78, 0.96, dot(R, normalize(vec3(0.85, 0.25, 0.3))));
+      vec3 L = normalize(vec3(-0.5, 0.9, 0.6)), F = normalize(vec3(0.7, 0.2, 0.5)), H = normalize(L + V);
+      float d = max(dot(N, L), 0.0) * 0.75 + max(dot(N, F), 0.0) * 0.3;
+      float fres = pow(1.0 - max(dot(N, V), 0.0), 5.0);
+      vec3 paint = C * (0.22 + 0.85 * d) + env * mix(0.04, 0.9, fres) * SH;         // painted: diffuse + clear coat
+      vec3 chrome = C * env * (0.9 + 0.2 * d);                                      // chrome: all reflection
+      vec3 c = mix(paint, chrome, MT);
+      c += vec3(1.0) * pow(max(dot(N, H), 0.0), mix(12.0, 90.0, SH)) * (0.15 + 0.7 * SH);
+      c += vec3(0.6, 0.75, 1.0) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * 0.18;     // rim against the dark panel
+      gl_FragColor = vec4(c, 1.0);
+    }`));
+  gl.linkProgram(prog);
+  GD.gl = gl; GD.prog = prog; GD.ready = false; GD.parts = [];
+  GD.loc = { p: gl.getAttribLocation(prog, "p"), n: gl.getAttribLocation(prog, "n") };
+  ["M", "VP", "col", "shine", "metal", "eye", "mode", "glow", "time", "brain", "brainR", "power", "zone"].forEach((u) => (GD.loc[u] = gl.getUniformLocation(prog, u)));
+  if (GD.loading) return;
+  GD.loading = true;
+  phoneModel()
+    .then(([info, buf, moves]) => { GD.info = info; GD.buf = buf; GD.moves = moves; goddardUpload(); })
+    .catch(() => { GD.loading = false; });
+}
+function goddardUpload() {
+  const gl = GD.gl, buf = GD.buf;
+  if (!gl || !buf) return;
+  GD.parts = GD.info.parts.map((pt) => {
+    const vtx = new Float32Array(buf, pt.v[0], pt.v[1] * 6), idx = new Uint16Array(buf, pt.i[0], pt.i[1]); // x y z, nx ny nz
+    const mk = (target, data) => { const o = gl.createBuffer(); gl.bindBuffer(target, o); gl.bufferData(target, data, gl.STATIC_DRAW); return o; };
+    const paint = PAINT[PART_PAINT[pt.name] || pt.colour] || PAINT.silver, lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (let i = 0; i < vtx.length; i += 6) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], vtx[i + k]); hi[k] = Math.max(hi[k], vtx[i + k]); }
+    const mid = [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2);
+    if (pt.name === "eye caps") return { name: pt.name, mid, group: pt.group, vb: mk(gl.ARRAY_BUFFER, vtx), ib: mk(gl.ELEMENT_ARRAY_BUFFER, idx), count: idx.length, col: EYE_GLOW, shine: 0, mode: 1 };
+    return { name: pt.name, mid, group: pt.group, legs: pt.group === "legs", mode: 0, vb: mk(gl.ARRAY_BUFFER, vtx), ib: mk(gl.ELEMENT_ARRAY_BUFFER, idx), count: idx.length, col: paint[0], metal: paint[1], shine: paint[2], zone: pt.name === "top jaw" ? 1 : 0 };
+  });
+  // The brain: a sphere drawn last, see-through, with the plasma worked out in the shader
+  const v = [], ix = [], ST = 28, SL = 18;
+  for (let i = 0; i <= SL; i++) for (let j = 0; j <= ST; j++) {
+    const th = Math.PI * i / SL, ph = TAU * j / ST, d = [Math.sin(th) * Math.cos(ph), Math.sin(th) * Math.sin(ph), Math.cos(th)];
+    v.push(BRAIN.at[0] + d[0] * BRAIN.r, BRAIN.at[1] + d[1] * BRAIN.r, BRAIN.at[2] + d[2] * BRAIN.r, d[0], d[1], d[2]);
+  }
+  for (let i = 0; i < SL; i++) for (let j = 0; j < ST; j++) { const a = i * (ST + 1) + j, b = a + ST + 1; ix.push(a, b, a + 1, a + 1, b, b + 1); }
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(ix), gl.STATIC_DRAW);
+  GD.brain = { name: "brain", mid: BRAIN.at, group: "head", vb, ib, count: ix.length, col: [1, 1, 1], shine: 0, mode: 2 };
+  GD.ready = true;
+}
+// ----- behaviour: which move to play, from what is happening in the repo
+function gdPlay(name, now) { // interrupts whatever he's doing
+  if (!GD.moves || !GD.moves.moves[name]) return;
+  GD.move = { name, t: 0, keys: GD.moves.moves[name].keys };
+  if (name === "fetch") goddardFetch();
+  if (name === "playDead") GD.seed = Math.random();
+  if (name === "analyze") setTimeout(() => { GD.scan = { t: 0, seen: new Set() }; }, 300);
+  if (name === "playDead") setTimeout(() => { for (const h of E.hubs.values()) h.pulse = Math.max(h.pulse, 0.8); }, 250); // the blast jolts the molecule
+  if (!now) GD.queue = [];
+  GD.lastActive = GD.now;
+}
+function gdQueue(name) { if (GD.move) GD.queue.push(name); else gdPlay(name, true); }
+function gdWake() { if (GD.posture === "lie") { GD.posture = "stand"; gdPlay("stretch"); } GD.lastActive = GD.now; }
+// A commit arrived: deleted files -> play dead (the show's gag), moved files -> curious, anything else -> happy
+function goddardEvent(files) {
+  gdWake();
+  const has = (st) => files.some((f) => f[0] === st);
+  gdPlay(has("D") ? "playDead" : has("R") ? "curious" : "happy");
+}
+function goddardSpark() { GD.flash = Math.max(GD.flash, 0.8); } // a spark or bubble landed: eyes and brain flare
+function goddardHit() { const m = E.mouse; return !!m && m.x < GODDARD_PX + 4 && m.y < GODDARD_PX; }
+// "Goddard, analyze": scans, then shows the repo's numbers where the event tag goes (his chest screen, in the show)
+function goddardClick() {
+  gdWake(); gdPlay("analyze");
+  const d = E.lastData;
+  if (!d || !E.tag) return;
+  const bytes = d.files.reduce((sum, f) => sum + f[1], 0), dn = (d.dirty || []).length;
+  const cl = d.cloud || [], cb = cl.reduce((sum, f) => sum + f[1], 0);
+  E.tag.textContent = `${d.files.length} files · ${fmtSize(bytes)}` + (d.cloudCount ? ` · ${fmtSize(cb)}${cl.length < d.cloudCount ? "+" : ""} in cloud` : "") + (dn ? ` · ${dn} unsaved` : "") + (d.ahead ? ` · ${d.ahead} to push` : "") + (!dn && !d.ahead ? " · all saved" : "");
+  E.tag.classList.add("show"); clearTimeout(E.tagTimer);
+  E.tagTimer = setTimeout(() => E.tag && E.tag.classList.remove("show"), 6000);
+}
+function gdThink(dt) {
+  const idle = GD.now - GD.lastActive, dirty = E.state === "dirty";
+  // Pointing at him counts as petting
+  const over = goddardHit() && !E.dragging;
+  if (over && !GD.petting) { gdWake(); if (!GD.move) gdPlay("pet"); }
+  GD.petting = over;
+  if (over || E.hover) GD.lastActive = GD.now;
+  // Posture: sits and begs for a commit (his treat) while there are unsaved changes; lies down when nothing happens
+  if (GD.posture !== "lie") GD.posture = dirty ? "sit" : "stand";
+  if (idle > SLEEP_AFTER && GD.posture !== "lie" && !GD.move) { gdPlay("yawn"); GD.posture = "lie"; }
+  if (GD.posture === "lie") return;
+  if (dirty && !GD.move && (GD.nextBeg -= dt) < 0) { gdPlay("beg"); GD.nextBeg = 25 + Math.random() * 20; }
+  if (!GD.move && (GD.nextTrick -= dt) < 0) { // a little life when nothing is going on
+    const tricks = ["fetch", "fetch", "lookAround", "shake", "bow", "bark"].concat(idle > 300 ? ["yawn", "yawn"] : []);
+    gdPlay(tricks[Math.floor(Math.random() * tricks.length)], true);
+    GD.nextTrick = 25 + Math.random() * 35;
+  }
+}
+// ----- pose: posture + the current move's keyframes, eased, then smoothed like real servos would be
+const smooth = (u) => u * u * (3 - 2 * u);
+function gdTarget() {
+  const J = GD.moves.joints, out = {};
+  for (const k in J) out[k] = J[k].rest;
+  Object.assign(out, GD.moves.postures[GD.posture] || {});
+  const m = GD.move;
+  if (!m) return out;
+  for (const k in J) {
+    let a = null, b = null;
+    for (const key of m.keys) { if (!(k in key[1])) continue; if (key[0] <= m.t) a = key; else { b = key; break; } }
+    if (a && b) out[k] = a[1][k] + (b[1][k] - a[1][k]) * smooth((m.t - a[0]) / (b[0] - a[0]));
+    else if (a) out[k] = a[1][k];
+  }
+  return out;
+}
+const RATE = { FL: 5, FR: 5, RL: 5, RR: 5, jaw: 16, eyes: 12, brain: 6, burst: 3 }; // per second; others 8
+function gdStep(dt) {
+  if (GD.move) {
+    GD.move.t += dt;
+    if (GD.move.t > GD.move.keys[GD.move.keys.length - 1][0] + 0.4) { GD.move = null; if (GD.queue.length) gdPlay(GD.queue.shift(), true); }
+  }
+  const tgt = gdTarget();
+  if (!GD.j) GD.j = Object.assign({}, tgt);
+  for (const k in tgt) GD.j[k] += (tgt[k] - GD.j[k]) * Math.min(1, dt * (RATE[k] || 8));
+}
+
+// While the pieces are scattered, his canvas leaves the panel (which clips it) and covers the whole desktop
+function goddardFull(on) {
+  const cv = GD.gl.canvas, dpr = window.devicePixelRatio || 1;
+  GD.full = on;
+  if (on) {
+    document.body.appendChild(cv);
+    cv.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:2147483000;pointer-events:none";
+    cv.width = Math.round(window.innerWidth * Math.min(dpr, 2)); cv.height = Math.round(window.innerHeight * Math.min(dpr, 2));
+  } else {
+    cv.style.cssText = "";
+    if (E.el) E.el.insertBefore(cv, E.el.firstChild); else cv.remove();
+    cv.width = cv.height = Math.round(GODDARD_PX * dpr * 1.5);
+  }
+}
+
+function drawGoddard(t, dt) {
+  const gl = GD.gl;
+  if (!gl || !GD.ready || !GD.moves) return;
+  GD.now = t;
+  if (!GD.lastActive) GD.lastActive = t;
+  gdThink(dt); gdStep(dt);
+  const j = GD.j;
+  GD.flash = Math.max(0, GD.flash - dt * 1.2);
+  // Blinks now and then (the LEDs dip), and his head follows whatever is pointed at
+  if ((GD.nextBlink -= dt) < 0) { GD.blink = 1; GD.nextBlink = 3 + Math.random() * 5; }
+  GD.blink = Math.max(0, GD.blink - dt * 7);
+  let fly = null;
+  for (const f of E.flyers) if (f.cx != null) fly = f;
+  GD.point = null;
+  if (GD.posture === "sit") for (const h of E.hubs.values()) if (h.dirty && h.level) { GD.point = h; break; }
+  const tgt = E.hover && !GD.petting ? { x: E.hover.sx, y: E.hover.sy } : fly ? { x: fly.cx, y: fly.cy } : GD.point ? { x: GD.point.sx, y: GD.point.sy } : null;
+  const lookTo = tgt ? Math.max(-0.5, Math.min(0.5, (tgt.x - W * 0.25) / W)) : 0;
+  GD.look += (lookTo - GD.look) * Math.min(1, dt * 4);
+  GD.wagPhase += dt * (4 + 10 * j.wag);
+  const eyes = Math.max(0, j.eyes * (1 - 0.85 * Math.sin(Math.PI * GD.blink)) + GD.flash * 0.5);
+  const power = Math.min(1, j.brain), surge = Math.max(0, j.brain - 1) + GD.flash;
+
+  // Play dead: while the pieces are scattered the canvas covers the whole desktop (see goddardFull)
+  const full = j.burst > 0.002;
+  if (full !== !!GD.full) goddardFull(full);
+  let S = M4.id(), cNdc = [0, 0];
+  if (GD.full && E.el) {
+    const r = E.el.getBoundingClientRect(), W2 = window.innerWidth, H2 = window.innerHeight;
+    cNdc = [((r.left + 4 + GODDARD_PX / 2) / W2) * 2 - 1, 1 - ((r.top + GODDARD_PX / 2) / H2) * 2];
+    S = M4.mul(M4.t(cNdc[0], cNdc[1], 0), M4.s(GODDARD_PX / W2, GODDARD_PX / H2, 1));
+  }
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+  gl.useProgram(GD.prog);
+  // World: CAD Z-up turned to Y-up, centred, turned to a three-quarter view that sways slowly
+  const yaw = -0.75 + Math.sin(t * 0.3) * 0.35;
+  const world = M4.mul(M4.ry(yaw), M4.mul(M4.rx(-Math.PI / 2), M4.t(0, 95, -150)));
+  const eye = [0, 420, 1320], VP = M4.mul(M4.persp(0.5, 1, 600, 2000), M4.mul(M4.rx(Math.atan2(eye[1], eye[2])), M4.t(-eye[0], -eye[1], -eye[2]))); // a little above, looking down at him
+  const VPs = M4.mul(S, VP); gl.uniform3fv(GD.loc.eye, eye);
+  gl.uniform1f(GD.loc.glow, Math.min(1.5, surge)); gl.uniform1f(GD.loc.time, t * (1 + surge * 1.2)); gl.uniform1f(GD.loc.brainR, BRAIN.r * 0.97); gl.uniform1f(GD.loc.power, power);
+
+  // Legs: each actuator raises or lowers its corner; the body tilts to sit on all four, the feet stay put
+  const h = [j.FL, j.FR, j.RL, j.RR].map((L) => (L - 1) * LEG_STROKE), hAvg = (h[0] + h[1] + h[2] + h[3]) / 4;
+  const pitchB = Math.asin(Math.max(-1, Math.min(1, ((h[2] + h[3]) - (h[0] + h[1])) / 2 / LEG_REAR)));
+  const rollB = Math.asin(Math.max(-1, Math.min(1, ((h[1] + h[3]) - (h[0] + h[2])) / 2 / 114)));
+  const breathe = Math.sin(t * 2.2) * 1.5;
+  const body = M4.mul(M4.t(0, 0, hAvg + breathe), M4.about(BODY_MID, M4.mul(M4.rx(pitchB), M4.ry(rollB))));
+  const pant = j.pant * (Math.sin(t * 8) * 0.5 + 0.5) * 0.25;
+  const head = M4.mul(body, M4.about(PIVOT.head, M4.mul(M4.rz(-(j.pan + GD.look)), M4.rx(-j.pitch))));
+  const jaw = M4.mul(head, M4.about(PIVOT.jaw, M4.rx(0.45 * Math.min(1, j.jaw + pant))));
+  const tail = M4.mul(body, M4.about(PIVOT.tail, M4.rz(Math.sin(GD.wagPhase) * (0.08 + 0.45 * j.wag))));
+  const G = { body, head, jaw, tail };
+  const LEGX = [[1, 0], [-1, 0], [1, LEG_REAR], [-1, LEG_REAR]];
+  const legM = (pt, i) => {
+    const [sx, dy] = LEGX[i], place = M4.mul(M4.t(0, dy, 0), M4.s(sx, 1, 1));
+    if (pt.name.startsWith("foot")) return place;
+    if (pt.name.startsWith("leg ring")) return M4.mul(M4.t(0, 0, h[i]), place);
+    return M4.mul(place, M4.about([0, 0, -49], M4.s(1, 1, (170 + h[i]) / 170))); // the corrugated tube stretches
+  };
+  const burst = j.burst;
+  // Play dead: every part flies to its own random spot on the desktop, tumbling and growing, then flies back
+  const piece = (pt, i) => { const key = pt.name + i + GD.seed, rn = (n) => (hash(key + n) % 1000) / 1000, b = Math.min(1, burst * (0.75 + 0.5 * rn("t"))); return { b, rn }; };
+  const blown = (pt, i, m) => {
+    if (burst < 0.002) return m;
+    const c = pt.legs ? [pt.mid[0] * LEGX[i][0], pt.mid[1] + LEGX[i][1], pt.mid[2]] : pt.mid, { b } = piece(pt, i), spin = b * (2 + (hash(pt.name + i) % 5)), k = 1 + b * 0.9;
+    return M4.mul(M4.about(c, M4.mul(M4.s(k, k, k), M4.mul(M4.rx(spin), M4.rz(spin * 0.7)))), m);
+  };
+  const scatterVP = (pt, i) => { // screen-space move of the piece, on top of the projection
+    if (burst < 0.002) return VPs;
+    const { b, rn } = piece(pt, i);
+    return M4.mul(M4.t(b * ((rn("x") * 2 - 1) * 0.9 - cNdc[0]), b * ((rn("y") * 2 - 1) * 0.85 - cNdc[1]) + Math.sin(Math.PI * b) * 0.15, 0), VPs);
+  };
+  gl.uniform3fv(GD.loc.brain, M4.apply(M4.mul(world, blown(GD.brain, 0, head)), BRAIN.at));
+  // Where his mouth and head are on the panel, so bubbles can come from (and go back to) him
+  const toPanel = (m, p) => { const cp = M4.mul(VP, M4.mul(world, m)), q = M4.apply(cp, p), wv = cp[3] * p[0] + cp[7] * p[1] + cp[11] * p[2] + cp[15];
+    return { x: 4 + (q[0] / wv * 0.5 + 0.5) * GODDARD_PX, y: (1 - (q[1] / wv * 0.5 + 0.5)) * GODDARD_PX }; };
+  GD.mouth = toPanel(jaw, [0, -400, 200]); GD.head = toPanel(head, [0, -241, 340]);
+  gl.disable(gl.BLEND); gl.depthMask(true);
+  for (const pt of GD.parts.concat([GD.brain])) {
+    if (pt === GD.brain) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
+    gl.uniform1f(GD.loc.mode, pt.mode); gl.uniform1f(GD.loc.zone, pt.zone || 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pt.vb);
+    gl.enableVertexAttribArray(GD.loc.p); gl.vertexAttribPointer(GD.loc.p, 3, gl.FLOAT, false, 24, 0);
+    gl.enableVertexAttribArray(GD.loc.n); gl.vertexAttribPointer(GD.loc.n, 3, gl.FLOAT, false, 24, 12);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pt.ib);
+    gl.uniform3fv(GD.loc.col, pt.mode === 1 ? pt.col.map((c) => c * eyes) : pt.col); gl.uniform1f(GD.loc.shine, pt.shine); gl.uniform1f(GD.loc.metal, pt.metal || 0);
+    const ms = pt.legs ? [0, 1, 2, 3].map((i) => legM(pt, i)) : [G[pt.group] || G.body];
+    ms.forEach((m, i) => {
+      gl.uniformMatrix4fv(GD.loc.VP, false, scatterVP(pt, i));
+      gl.uniformMatrix4fv(GD.loc.M, false, M4.mul(world, blown(pt, i, m)));
+      gl.drawElements(gl.TRIANGLES, pt.count, gl.UNSIGNED_SHORT, 0);
+    });
+  }
+  gl.depthMask(true);
+}
+
+
+// ===================== PHONE GLUE =====================
+// Replaces the Übersicht parts of the widget: the repo snapshot comes from the GitHub API
+// (read-only token kept on the phone), touch replaces the mouse, and the panel fills the screen.
+const GH = { owner: "jpk4202biz-ctrl", repo: "goddard-brain", branch: "main" };
+const WIDGET_DIR = "projects/completed/macos-desktop-widgets/code/goddard-brain/";
+const TOKEN_KEY = "goddard-gh-token", SEEN_KEY = "goddard-seen", POLL_MS = 30000;
+const LOCAL = location.protocol === "file:" || /^(localhost|127\.|192\.168\.)/.test(location.hostname) && /[?&]local\b/.test(location.search);
+const P = { token: "", etag: "", detail: new Map(), tree: null, treeSha: "", shas: {}, busy: false, last: 0, status: "" };
+try { P.token = localStorage.getItem(TOKEN_KEY) || ""; } catch (e) {}
+try { const s = JSON.parse(localStorage.getItem(SEEN_KEY)); if (Array.isArray(s)) E.seen = new Set(s); } catch (e) {} // commits since last visit get barked
+
+function gh(path, extra) {
+  return fetch("https://api.github.com/repos/" + GH.owner + "/" + GH.repo + path, {
+    cache: "no-store",
+    headers: Object.assign({ Authorization: "Bearer " + P.token, Accept: "application/vnd.github+json" }, extra || {}),
+  });
+}
+const STATUS = { added: "A", removed: "D", renamed: "R", copied: "A" };
+
+async function poll() {
+  if (P.busy || (!P.token && !LOCAL)) return;
+  P.busy = true;
+  try {
+    if (LOCAL) { const r = await fetch("local-data.json", { cache: "no-store" }); feed(await r.json()); return; }
+    const r = await gh("/commits?sha=" + GH.branch + "&per_page=8", P.etag ? { "If-None-Match": P.etag } : null);
+    if (r.status === 304) { setStatus(""); return; }
+    if (r.status === 401 || r.status === 403 || r.status === 404) { setStatus("GitHub said no (" + r.status + "): check the token"); return; }
+    if (!r.ok) { setStatus("GitHub " + r.status); return; }
+    const list = await r.json();
+    P.etag = r.headers.get("ETag") || "";
+    // Files each commit touched (only new commits are asked about)
+    for (const c of list) if (!P.detail.has(c.sha)) {
+      const d = await gh("/commits/" + c.sha);
+      if (!d.ok) continue;
+      const files = ((await d.json()).files || []).map((f) => (f.status === "renamed" && f.previous_filename ? ["R", f.filename, f.previous_filename] : [STATUS[f.status] || "M", f.filename]));
+      P.detail.set(c.sha, files);
+    }
+    // Every file in the repo with its size (only when the newest commit changed)
+    const treeSha = list.length ? list[0].commit.tree.sha : "";
+    if (treeSha && treeSha !== P.treeSha) {
+      const t = await gh("/git/trees/" + treeSha + "?recursive=1");
+      if (t.ok) {
+        const tree = (await t.json()).tree || [];
+        P.tree = tree.filter((x) => x.type === "blob" && !x.path.endsWith(".DS_Store")).map((x) => [x.path, x.size]);
+        for (const x of tree) if (x.path.startsWith(WIDGET_DIR)) P.shas[x.path.slice(WIDGET_DIR.length)] = x.sha;
+        P.treeSha = treeSha; treeOk();
+      }
+    }
+    if (!P.tree) return;
+    feed({
+      files: P.tree, cloud: [], cloudCount: 0, dirty: [], ahead: 0,
+      events: list.slice().reverse().map((c) => ({ id: c.sha, remote: true, files: P.detail.get(c.sha) || [] })),
+    });
+    setStatus("");
+  } catch (e) {
+    setStatus("Offline");
+  } finally {
+    P.busy = false; P.last = Date.now();
+  }
+}
+function feed(data) {
+  update(JSON.stringify(data));
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify([...(E.seen || [])].slice(-200))); } catch (e) {}
+}
+function setStatus(s) { P.status = s; const el = document.querySelector(".status"); if (el) el.textContent = s; }
+
+// Goddard's mesh and moves come from the private repo too, kept in the phone's cache by version
+let treeOk; const treeReady = new Promise((ok) => (treeOk = ok));
+async function modelFile(name, type) {
+  if (LOCAL) { const r = await fetch("local/" + name); return type === "json" ? r.json() : r.arrayBuffer(); }
+  await treeReady;
+  const key = "https://goddard.cache/" + name + "?" + P.shas[name];
+  let cache = null;
+  try { cache = await caches.open("goddard-model"); } catch (e) {}
+  let r = cache && (await cache.match(key));
+  if (!r) {
+    r = await gh("/contents/" + WIDGET_DIR + name + "?ref=" + GH.branch, { Accept: "application/vnd.github.raw" });
+    if (!r.ok) throw new Error("model " + r.status);
+    if (cache) { await cache.put(key, r.clone()); for (const k of await cache.keys()) if (k.url.includes("/" + name + "?") && k.url !== key) cache.delete(k); }
+  }
+  return type === "json" ? r.json() : r.arrayBuffer();
+}
+function phoneModel() {
+  return Promise.all([modelFile("goddard.json", "json"), modelFile("goddard.bin", "bin"), modelFile("goddard-moves.json", "json")]);
+}
+
+// ---------- screen size: the panel fills the phone, Goddard sits big in the top-left corner
+function fit() {
+  const el = E.el, r = el.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  W = Math.round(r.width); H = Math.round(r.height);
+  GODDARD_PX = Math.round(Math.min(220, Math.max(110, Math.min(W, H) * 0.42)));
+  const g = el.querySelector("canvas.goddard");
+  g.style.width = g.style.height = GODDARD_PX + "px";
+  if (!GD.full) g.width = g.height = Math.round(GODDARD_PX * dpr * 1.5);
+  el.querySelector("header").style.paddingLeft = GODDARD_PX + 10 + "px";
+  const cv = el.querySelector("canvas.stage");
+  cv.width = W * dpr; cv.height = H * dpr;
+  E.ctx = cv.getContext("2d"); E.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (E.lastData) rebuild(E.lastData);
+}
+
+// ---------- touch: tap an atom to see it and zoom in, tap empty space to zoom out, tap Goddard to analyze
+function attachPhone() {
+  const el = document.querySelector(".panel");
+  E.el = el; E.dot = el.querySelector(".dot"); E.tag = el.querySelector(".event"); E.menu = el.querySelector(".menu"); E.tip = el.querySelector(".tip"); E.crumb = el.querySelector(".crumb");
+  goddardInit(el.querySelector("canvas.goddard"));
+  fit();
+  let clearTimer = null, down = false;
+  const at = (ev) => { const r = el.getBoundingClientRect(); E.mouse = { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+  el.addEventListener("pointerdown", (ev) => { down = true; clearTimeout(clearTimer); at(ev); pickHover(); });
+  el.addEventListener("pointermove", (ev) => { if (down) at(ev); }); // slide a finger to read the atoms
+  const up = (ev) => {
+    if (!down) return;
+    down = false; at(ev); pickHover();
+    if (ev.type === "pointerup") click(E.hover);
+    clearTimer = setTimeout(() => { E.mouse = null; }, 2500); // the label stays a moment, then he goes back to roaming
+  };
+  el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  window.addEventListener("resize", () => setTimeout(fit, 50));
+
+  // Bottom bar: molecule style and settings
+  const bar = document.querySelector(".bar");
+  bar.innerHTML = STYLES.map(([id, name]) => `<button data-id="${id}">${name.replace("Ball-and-stick", "Ball").replace("Atoms and electrons", "Electrons").replace("Branching molecule", "Branching")}</button>`).join("") + `<button data-id="gear" aria-label="Settings">⚙︎</button>`;
+  const mark = () => bar.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.id === E.style));
+  mark();
+  bar.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    if (b.dataset.id === "gear") { showSetup(true); return; }
+    E.style = b.dataset.id; E.flyers = []; mark();
+    try { localStorage.setItem(STYLE_KEY, E.style); } catch (e) {}
+  });
+
+  if (!E.running) { E.running = true; requestAnimationFrame(frame); }
+  poll();
+  setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - P.last > 5000) poll(); });
+}
+
+// ---------- one-time setup: paste a read-only GitHub token (stays on this phone only)
+function showSetup(again) {
+  const s = document.querySelector(".setup");
+  s.style.display = "flex";
+  s.querySelector(".forget").style.display = again && P.token ? "inline-block" : "none";
+  s.querySelector(".cancel").style.display = again ? "inline-block" : "none";
+  s.querySelector("input").value = "";
+}
+function initSetup() {
+  const s = document.querySelector(".setup");
+  s.querySelector(".save").addEventListener("click", () => {
+    const v = s.querySelector("input").value.trim();
+    if (!v) return;
+    P.token = v; P.etag = ""; P.treeSha = "";
+    try { localStorage.setItem(TOKEN_KEY, v); } catch (e) {}
+    s.style.display = "none"; poll();
+  });
+  s.querySelector(".cancel").addEventListener("click", () => (s.style.display = "none"));
+  s.querySelector(".forget").addEventListener("click", () => {
+    try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+    P.token = ""; showSetup(false);
+  });
+  if (!P.token && !LOCAL) showSetup(false);
+}
+
+initSetup();
+attachPhone();
+
+</script>
+</body>
+</html>
