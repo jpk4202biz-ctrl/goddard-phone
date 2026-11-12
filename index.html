@@ -858,14 +858,14 @@ function goddardUpload() {
   GD.ready = true;
 }
 // ----- sounds: off until switched on in the menu. Clips sit in sounds/, and sounds/sounds.json lists which clips go with which move
-const SND = { ctx: null, map: null, bufs: {}, src: null, volume: 0.6 };
+const SND = { ctx: null, map: null, bufs: {}, src: null, volume: 0.6, mouth: null }; // mouth: the playing clip's jaw track, so he lip-syncs his barks
 const soundGet = (file, json) => modelFile("sounds/" + file, json ? "json" : "bin");
 function soundWake() { // audio can only start from a click or tap, so this is called on every one
   if (!E.sound) return;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   try { if (!SND.ctx) SND.ctx = new AC(); if (SND.ctx.state === "suspended") SND.ctx.resume(); } catch (e) { return; }
-  if (!SND.map) SND.map = soundGet("sounds.json", true).then((m) => m.moves || {}).catch(() => { SND.map = null; return {}; });
+  if (!SND.map) SND.map = soundGet("sounds.json", true).then((m) => ({ moves: m.moves || {}, mouth: m.mouth || {}, step: m.mouthStep || 0.02 })).catch(() => { SND.map = null; return { moves: {}, mouth: {}, step: 0.02 }; });
 }
 function soundSet(on) {
   E.sound = on;
@@ -873,19 +873,21 @@ function soundSet(on) {
   if (on) { soundWake(); gdPlay("bark"); } else if (SND.src) { try { SND.src.stop(); } catch (e) {} SND.src = null; }
 }
 function gdSound(name) {
+  SND.mouth = null;
   if (!E.sound || !SND.ctx || !SND.map) return;
-  const start = (buf) => {
+  const start = (buf, track, step) => {
     if (!E.sound || SND.ctx.state !== "running") return;
     if (SND.src) { try { SND.src.stop(); } catch (e) {} }
     const s = SND.ctx.createBufferSource(), g = SND.ctx.createGain();
     s.buffer = buf; g.gain.value = SND.volume; s.connect(g); g.connect(SND.ctx.destination); s.start(); SND.src = s;
+    SND.mouth = track ? { open: track, step, t0: SND.ctx.currentTime, move: name } : null;
   };
-  SND.map.then((moves) => {
-    const list = moves[name];
+  SND.map.then((info) => {
+    const list = info.moves[name];
     if (!list || !list.length) return;
     const file = list[Math.floor(Math.random() * list.length)];
-    if (SND.bufs[file]) return start(SND.bufs[file]);
-    return soundGet(file).then((ab) => SND.ctx.decodeAudioData(ab, (buf) => { SND.bufs[file] = buf; start(buf); }, () => {}));
+    if (SND.bufs[file]) return start(SND.bufs[file], info.mouth[file], info.step);
+    return soundGet(file).then((ab) => SND.ctx.decodeAudioData(ab, (buf) => { SND.bufs[file] = buf; start(buf, info.mouth[file], info.step); }, () => {}));
   }).catch(() => {});
 }
 // ----- behaviour: which move to play, from what is happening in the repo
@@ -953,6 +955,9 @@ function gdTarget() {
     if (a && b) out[k] = a[1][k] + (b[1][k] - a[1][k]) * smooth((m.t - a[0]) / (b[0] - a[0]));
     else if (a) out[k] = a[1][k];
   }
+  // While a clip with a mouth track plays for this move, the jaw follows the sound instead of the keyframes
+  const mt = SND.mouth;
+  if (mt && mt.move === m.name) { const i = Math.floor((SND.ctx.currentTime - mt.t0 + 0.04) / mt.step); out.jaw = i >= 0 && i < mt.open.length ? mt.open[i] / 9 : 0; }
   return out;
 }
 const RATE = { FL: 5, FR: 5, RL: 5, RR: 5, jaw: 16, eyes: 12, brain: 6, burst: 3 }; // per second; others 8
